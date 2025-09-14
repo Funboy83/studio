@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -92,7 +93,7 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
                 relatedCreditNoteId: creditNoteRef.id,
             };
             
-            newInvoiceRef = _createInvoiceWithItems(batch, { invoiceData: newInvoiceData, items: exchangeItems, customer });
+            newInvoiceRef = await _createInvoiceWithItems(batch, { invoiceData: newInvoiceData, items: exchangeItems, customer });
             batch.update(creditNoteRef, { newExchangeInvoiceId: newInvoiceRef.id, status: 'fully_used' });
 
             // === 4. Link Payments to New Invoice ===

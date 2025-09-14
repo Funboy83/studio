@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -238,10 +239,10 @@ interface CreateInvoicePayload {
  * This is the "Master Chef" function. It does NOT commit the batch.
  * @returns The DocumentReference of the new invoice.
  */
-export function _createInvoiceWithItems(
+export async function _createInvoiceWithItems(
   batch: WriteBatch,
   payload: CreateInvoicePayload
-): DocumentReference {
+): Promise<DocumentReference> {
   const { invoiceData, items, customer } = payload;
   
   const invoiceRef = doc(collection(db, INVOICES_COLLECTION));
@@ -322,7 +323,7 @@ export async function sendInvoice({ invoiceData, items, customer, cashAmount, ca
             paymentIds: [],
         };
 
-        const invoiceRef = _createInvoiceWithItems(batch, { invoiceData: finalInvoiceData, items, customer });
+        const invoiceRef = await _createInvoiceWithItems(batch, { invoiceData: finalInvoiceData, items, customer });
 
         if (totalPaid > 0) {
             const paymentId = _createPaymentWithinTransaction(
