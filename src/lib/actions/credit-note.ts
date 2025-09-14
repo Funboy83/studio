@@ -5,8 +5,8 @@ import { db, isConfigured } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { CreditNoteDetail, Customer } from '@/lib/types';
 import { getCustomers } from './customers';
+import { DATA_PATH } from '../db-path';
 
-const DATA_PATH = 'cellphone-inventory-system/data';
 const CREDIT_NOTES_COLLECTION = 'credit_notes';
 
 export async function getCreditNoteById(id: string): Promise<CreditNoteDetail | null> {

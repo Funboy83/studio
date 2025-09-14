@@ -8,8 +8,8 @@ import { collection, doc, runTransaction, serverTimestamp, getDoc, increment, Do
 import type { Invoice, InvoiceItem, Customer, CreditNote, Product } from '@/lib/types';
 import { _createInvoiceWithItems, getLatestInvoiceNumber } from './invoice';
 import { _createPaymentWithinTransaction } from './payment';
+import { DATA_PATH } from '../db-path';
 
-const DATA_PATH = 'cellphone-inventory-system/data';
 const INVOICES_COLLECTION = 'invoices';
 const CUSTOMERS_COLLECTION = 'customers';
 const CREDIT_NOTES_COLLECTION = 'credit_notes';

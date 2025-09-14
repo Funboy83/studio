@@ -1,14 +1,15 @@
 
 
 
+
 'use server';
 
 import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc } from 'firebase/firestore';
 import type { ProductHistory, Customer } from '../types';
 import { getCustomers } from './customers';
+import { DATA_PATH } from '../db-path';
 
-const DATA_PATH = 'cellphone-inventory-system/data';
 const INVENTORY_HISTORY_COLLECTION = 'inventory_history';
 
 export async function getInventoryHistory(): Promise<ProductHistory[]> {

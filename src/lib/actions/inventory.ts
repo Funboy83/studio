@@ -7,6 +7,7 @@ import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDoc, limit } from 'firebase/firestore';
 import type { Product } from '@/lib/types';
 import { MOCK_PRODUCTS } from '../mock-data';
+import { DATA_PATH } from '../db-path';
 
 const ProductSchema = z.object({
   imei: z.string().min(15, 'IMEI must be at least 15 characters').max(15, 'IMEI must be 15 characters'),
@@ -22,7 +23,6 @@ const ProductSchema = z.object({
   date: z.string().min(1, 'Date is required'),
 });
 
-const DATA_PATH = 'cellphone-inventory-system/data';
 const INVENTORY_COLLECTION = 'inventory';
 const INVENTORY_HISTORY_COLLECTION = 'inventory_history';
 

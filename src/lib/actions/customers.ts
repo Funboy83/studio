@@ -7,8 +7,8 @@ import type { Customer, Invoice, InvoiceDetail, InvoiceItem } from '../types';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
+import { DATA_PATH } from '../db-path';
 
-const DATA_PATH = 'cellphone-inventory-system/data';
 const CUSTOMERS_COLLECTION = 'customers';
 const INVOICES_COLLECTION = 'invoices';
 

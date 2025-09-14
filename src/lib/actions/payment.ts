@@ -6,6 +6,8 @@
 
 
 
+
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -13,6 +15,7 @@ import { db, isConfigured } from '@/lib/firebase';
 import { collection, doc, runTransaction, serverTimestamp, getDocs, where, query, orderBy, increment, WriteBatch, collectionGroup, getDoc } from 'firebase/firestore';
 import type { Invoice, Customer, TenderDetail, Payment, PaymentDetail, InvoiceDetail, InvoiceItem } from '@/lib/types';
 import { getCustomers } from './customers';
+import { DATA_PATH } from '../db-path';
 
 interface ApplyPaymentPayload {
   customerId: string;
@@ -22,7 +25,6 @@ interface ApplyPaymentPayload {
   notes?: string;
 }
 
-const DATA_PATH = 'cellphone-inventory-system/data';
 const PAYMENTS_COLLECTION = 'payments';
 const INVOICES_COLLECTION = 'invoices';
 const CUSTOMERS_COLLECTION = 'customers';
@@ -330,6 +332,7 @@ export async function applyPayment(payload: ApplyPaymentPayload): Promise<{ succ
     return { success: false, error: 'An unknown error occurred while applying the payment.' };
   }
 }
+
 
 
 

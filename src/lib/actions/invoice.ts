@@ -1,6 +1,7 @@
 
 
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -11,6 +12,7 @@ import { summarizeInvoice } from '@/ai/flows/invoice-summary';
 import type { Invoice, InvoiceItem, Product, Customer, InvoiceDetail, InvoiceHistory, EditHistoryEntry, Payment, TenderDetail } from '@/lib/types';
 import { getInventory } from './inventory';
 import { _createPaymentWithinTransaction } from './payment';
+import { DATA_PATH } from '../db-path';
 
 const InvoiceSummarySchema = z.object({
   items: z.array(z.object({
@@ -40,7 +42,6 @@ export async function getInvoiceSummary(items: InvoiceItem[]): Promise<{ summary
   }
 }
 
-const DATA_PATH = 'cellphone-inventory-system/data';
 const INVOICES_COLLECTION = 'invoices';
 const INVENTORY_COLLECTION = 'inventory';
 const INVENTORY_HISTORY_COLLECTION = 'inventory_history';
