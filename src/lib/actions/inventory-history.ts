@@ -1,15 +1,10 @@
 
-
-
-
-
 'use server';
 
 import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc } from 'firebase/firestore';
 import type { ProductHistory, Customer } from '../types';
 import { getCustomers } from './customers';
-import { DATA_PATH } from '../db-path';
 
 const INVENTORY_HISTORY_COLLECTION = 'inventory_history';
 
@@ -20,8 +15,7 @@ export async function getInventoryHistory(): Promise<ProductHistory[]> {
   }
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const historyCollectionRef = collection(dataDocRef, INVENTORY_HISTORY_COLLECTION);
+    const historyCollectionRef = collection(db, INVENTORY_HISTORY_COLLECTION);
     
     const [historySnapshot, customers] = await Promise.all([
       getDocs(query(historyCollectionRef, orderBy('movedAt', 'desc'))),
@@ -50,6 +44,3 @@ export async function getInventoryHistory(): Promise<ProductHistory[]> {
     return [];
   }
 }
-
-
-    

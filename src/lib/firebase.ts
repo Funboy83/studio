@@ -2,12 +2,12 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyBmE1p_qhMVGGr_NDmOVvFY7ipyeNQVOC4",
+  authDomain: "management-project-bf767.firebaseapp.com",
+  projectId: "management-project-bf767",
+  storageBucket: "management-project-bf767.firebasestorage.app",
+  messagingSenderId: "200210418664",
+  appId: "1:200210418664:web:bb744d15f07f7ddffe725d",
 };
 
 let app: FirebaseApp;

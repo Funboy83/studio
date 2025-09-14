@@ -4,7 +4,6 @@
 import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc } from 'firebase/firestore';
 import type { EditHistoryEntry } from '../types';
-import { DATA_PATH } from '../db-path';
 
 const INVOICES_COLLECTION = 'invoices';
 
@@ -14,8 +13,7 @@ export async function getInvoiceEditHistory(invoiceId: string): Promise<EditHist
   }
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const invoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${invoiceId}`);
+    const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${invoiceId}`);
     const historyCollectionRef = collection(invoiceRef, 'edit_history');
     
     const historyQuery = query(historyCollectionRef, orderBy('timestamp', 'desc'));

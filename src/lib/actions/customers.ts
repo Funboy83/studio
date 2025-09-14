@@ -7,7 +7,6 @@ import type { Customer, Invoice, InvoiceDetail, InvoiceItem } from '../types';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
-import { DATA_PATH } from '../db-path';
 
 const CUSTOMERS_COLLECTION = 'customers';
 const INVOICES_COLLECTION = 'invoices';
@@ -25,9 +24,8 @@ export async function getCustomers(): Promise<Customer[]> {
   }
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const customersCollectionRef = collection(dataDocRef, CUSTOMERS_COLLECTION);
-    const invoicesCollectionRef = collection(dataDocRef, INVOICES_COLLECTION);
+    const customersCollectionRef = collection(db, CUSTOMERS_COLLECTION);
+    const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
     
     const customersQuery = query(customersCollectionRef, orderBy('name'));
     
@@ -91,8 +89,7 @@ export async function addCustomer(prevState: any, formData: FormData) {
   }
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const customersCollectionRef = collection(dataDocRef, CUSTOMERS_COLLECTION);
+    const customersCollectionRef = collection(db, CUSTOMERS_COLLECTION);
     await addDoc(customersCollectionRef, {
       ...validatedFields.data,
       debt: 0,
@@ -114,8 +111,7 @@ export async function getCustomerDetails(id: string): Promise<{ customer: Custom
     return null;
   }
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${id}`);
+    const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${id}`);
     const customerSnap = await getDoc(customerRef);
 
     if (!customerSnap.exists()) {
@@ -135,7 +131,7 @@ export async function getCustomerDetails(id: string): Promise<{ customer: Custom
       debt: customerData.debt || 0,
     } as Customer;
 
-    const invoicesCollectionRef = collection(dataDocRef, INVOICES_COLLECTION);
+    const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
     const invoicesQuery = query(invoicesCollectionRef, where('customerId', '==', id));
     const invoicesSnapshot = await getDocs(invoicesQuery);
 

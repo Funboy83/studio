@@ -4,9 +4,6 @@
 import { revalidatePath } from 'next/cache';
 import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, addDoc, serverTimestamp, query, orderBy, doc } from 'firebase/firestore';
-import { DATA_PATH } from '../db-path';
-
-const OPTIONS_BASE_PATH = DATA_PATH;
 
 async function getOptions(optionType: string): Promise<string[]> {
     if (!isConfigured) {
@@ -21,8 +18,7 @@ async function getOptions(optionType: string): Promise<string[]> {
         return mockOptions[optionType] || [];
     }
     try {
-        const dataDocRef = doc(db, OPTIONS_BASE_PATH);
-        const optionsCollection = collection(dataDocRef, optionType);
+        const optionsCollection = collection(db, optionType);
         const q = query(optionsCollection, orderBy('value'));
         const snapshot = await getDocs(q);
         return snapshot.docs.map(doc => doc.data().value as string);
@@ -41,8 +37,7 @@ async function addOption(optionType: string, value: string): Promise<{ success: 
     }
 
     try {
-        const dataDocRef = doc(db, OPTIONS_BASE_PATH);
-        const optionsCollection = collection(dataDocRef, optionType);
+        const optionsCollection = collection(db, optionType);
         await addDoc(optionsCollection, {
             value: value.trim(),
             createdAt: serverTimestamp(),

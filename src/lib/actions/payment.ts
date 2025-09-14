@@ -1,14 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -16,7 +6,6 @@ import { db, isConfigured } from '@/lib/firebase';
 import { collection, doc, runTransaction, serverTimestamp, getDocs, where, query, orderBy, increment, WriteBatch, collectionGroup, getDoc } from 'firebase/firestore';
 import type { Invoice, Customer, TenderDetail, Payment, PaymentDetail, InvoiceDetail, InvoiceItem } from '@/lib/types';
 import { getCustomers } from './customers';
-import { DATA_PATH } from '../db-path';
 
 interface ApplyPaymentPayload {
   customerId: string;
@@ -35,13 +24,12 @@ export async function getPayments(): Promise<PaymentDetail[]> {
     return [];
   }
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const paymentsCollectionRef = collection(dataDocRef, PAYMENTS_COLLECTION);
+    const paymentsCollectionRef = collection(db, PAYMENTS_COLLECTION);
     
     const [paymentsSnapshot, customers, invoicesSnapshot] = await Promise.all([
       getDocs(query(paymentsCollectionRef, orderBy('paymentDate', 'desc'))),
       getCustomers(),
-      getDocs(collection(dataDocRef, INVOICES_COLLECTION))
+      getDocs(collection(db, INVOICES_COLLECTION))
     ]);
     
     const customerMap = new Map<string, Customer>();
@@ -56,7 +44,7 @@ export async function getPayments(): Promise<PaymentDetail[]> {
       const customer = data.customerId ? customerMap.get(data.customerId) : undefined;
       
       const appliedToInvoicesPromises = (data.appliedToInvoices || []).map(async (invoiceId) => {
-          const invoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${invoiceId}`);
+          const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${invoiceId}`);
           const invoiceSnap = await getDoc(invoiceRef);
           if (!invoiceSnap.exists()) return null;
 
@@ -103,7 +91,7 @@ export async function getPayments(): Promise<PaymentDetail[]> {
  * This is not to be called directly from a component.
  * @returns The ID of the new payment document.
  */
-export async function _createPaymentWithinTransaction(
+export function _createPaymentWithinTransaction(
   batch: WriteBatch,
   customerId: string,
   totalAmount: number,
@@ -112,9 +100,8 @@ export async function _createPaymentWithinTransaction(
   type: 'payment' | 'refund' = 'payment',
   notes?: string,
   sourceCreditNoteId?: string
-): Promise<string> {
-    const dataDocRef = doc(db, DATA_PATH);
-    const paymentRef = doc(collection(dataDocRef, PAYMENTS_COLLECTION));
+): string {
+    const paymentRef = doc(collection(db, PAYMENTS_COLLECTION));
 
     const isRefund = type === 'refund';
     const sign = isRefund ? -1 : 1;
@@ -162,101 +149,14 @@ export async function applyPayment(payload: ApplyPaymentPayload): Promise<{ succ
 
   try {
     await runTransaction(db, async (transaction) => {
-      const dataDocRef = doc(db, DATA_PATH);
-      const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${customerId}`);
-      const invoicesCollectionRef = collection(dataDocRef, INVOICES_COLLECTION);
+      const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${customerId}`);
+      const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
       
       // --- 1. READ PHASE ---
       const customerDoc = await transaction.get(customerRef);
       if (!customerDoc.exists()) {
         throw new Error("Customer not found.");
       }
-
-      const outstandingInvoicesQuery = query(
-        invoicesCollectionRef,
-        where('customerId', '==', customerId),
-        where('status', 'in', ['Unpaid', 'Partial'])
-      );
-      
-      const querySnapshot = await getDocs(outstandingInvoicesQuery);
-      
-      const outstandingInvoices = querySnapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as Invoice))
-        .sort((a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime());
-
-      // --- 2. LOGIC/CALCULATION PHASE (IN-MEMORY) ---
-      let paymentRemaining = totalPaid;
-      const appliedInvoiceIds: string[] = [];
-      const invoiceUpdates: { ref: any; data: any }[] = [];
-
-      for (const invoice of outstandingInvoices) {
-        if (paymentRemaining <= 0) break;
-        
-        const invoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${invoice.id}`);
-        const currentAmountPaid = invoice.amountPaid || 0;
-        const amountDueOnInvoice = invoice.total - currentAmountPaid;
-        
-        if (amountDueOnInvoice <= 0) continue;
-
-        const amountToApply = Math.min(paymentRemaining, amountDueOnInvoice);
-        const newAmountPaid = currentAmountPaid + amountToApply;
-        
-        let newStatus: Invoice['status'] = 'Partial';
-        if (newAmountPaid >= invoice.total) {
-          newStatus = 'Paid';
-        }
-        
-        invoiceUpdates.push({
-          ref: invoiceRef,
-          data: {
-            amountPaid: newAmountPaid,
-            status: newStatus,
-            paymentIds: [...(invoice.paymentIds || []), 'placeholder_payment_id'], // Placeholder
-          }
-        });
-
-        appliedInvoiceIds.push(invoice.id);
-        paymentRemaining -= amountToApply;
-      }
-      
-      const currentDebt = customerDoc.data().debt || 0;
-      const newDebt = Math.max(0, currentDebt - totalPaid);
-
-      // --- 3. WRITE PHASE (using WriteBatch inside transaction) ---
-      const batch = writeBatch(db); // Use a batch to manage writes
-
-      const paymentId = await _createPaymentWithinTransaction(
-        batch,
-        customerId,
-        totalPaid,
-        { cashAmount, checkAmount, cardAmount },
-        appliedInvoiceIds,
-        'payment',
-        notes
-      );
-
-      for (const update of invoiceUpdates) {
-        const paymentIds = update.data.paymentIds.map((id: string) => id === 'placeholder_payment_id' ? paymentId : id);
-        batch.update(update.ref, { ...update.data, paymentIds });
-      }
-      
-      batch.update(customerRef, { debt: newDebt });
-
-      // The transaction will commit the batch.
-      // This is a subtle point: you don't commit the batch yourself.
-      // The transaction object will handle it.
-      // To pass writes to the transaction, we must use transaction.set/update/delete.
-      // Let's refactor to use transaction directly instead of a batch.
-    });
-
-    // Re-running with direct transaction writes as 'batch' inside 'runTransaction' is not the standard pattern.
-     await runTransaction(db, async (transaction) => {
-      const dataDocRef = doc(db, DATA_PATH);
-      const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${customerId}`);
-      const invoicesCollectionRef = collection(dataDocRef, INVOICES_COLLECTION);
-      
-      const customerDoc = await transaction.get(customerRef);
-      if (!customerDoc.exists()) throw new Error("Customer not found.");
 
       const outstandingInvoicesQuery = query(
         invoicesCollectionRef,
@@ -273,17 +173,21 @@ export async function applyPayment(payload: ApplyPaymentPayload): Promise<{ succ
         .map(d => ({ id: d.id, ...d.data() } as Invoice))
         .sort((a, b) => new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime());
 
+      // --- 2. LOGIC/CALCULATION PHASE (IN-MEMORY) ---
       let paymentRemaining = totalPaid;
       const appliedInvoiceIds: string[] = [];
-      const paymentRef = doc(collection(dataDocRef, PAYMENTS_COLLECTION));
+      const paymentRef = doc(collection(db, PAYMENTS_COLLECTION));
 
+      // --- 3. WRITE PHASE (using transaction) ---
       for (const invoice of outstandingInvoices) {
         if (paymentRemaining <= 0) break;
-        const invoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${invoice.id}`);
+        
+        const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${invoice.id}`);
         const currentAmountPaid = invoice.amountPaid || 0;
         const amountDueOnInvoice = invoice.total - currentAmountPaid;
         
         if (amountDueOnInvoice <= 0) continue;
+
         const amountToApply = Math.min(paymentRemaining, amountDueOnInvoice);
         
         transaction.update(invoiceRef, {
@@ -316,12 +220,10 @@ export async function applyPayment(payload: ApplyPaymentPayload): Promise<{ succ
       transaction.update(customerRef, { debt: increment(-totalPaid) });
     });
 
-
     revalidatePath(`/dashboard/customers/${customerId}`);
     revalidatePath(`/dashboard/customers/${customerId}/payment`);
     revalidatePath('/dashboard/invoices');
     revalidatePath('/dashboard/finance');
-
 
     return { success: true };
 
@@ -333,11 +235,3 @@ export async function applyPayment(payload: ApplyPaymentPayload): Promise<{ succ
     return { success: false, error: 'An unknown error occurred while applying the payment.' };
   }
 }
-
-
-
-
-
-
-
-

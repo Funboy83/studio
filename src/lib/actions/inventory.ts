@@ -7,7 +7,6 @@ import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, writeBatch, serverTimestamp, query, where, getDoc, limit } from 'firebase/firestore';
 import type { Product } from '@/lib/types';
 import { MOCK_PRODUCTS } from '../mock-data';
-import { DATA_PATH } from '../db-path';
 
 const ProductSchema = z.object({
   imei: z.string().min(15, 'IMEI must be at least 15 characters').max(15, 'IMEI must be 15 characters'),
@@ -31,8 +30,7 @@ export async function checkImeiExists(imei: string): Promise<boolean> {
     return false;
   }
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const inventoryCollectionRef = collection(dataDocRef, INVENTORY_COLLECTION);
+    const inventoryCollectionRef = collection(db, INVENTORY_COLLECTION);
     const q = query(inventoryCollectionRef, where('imei', '==', imei), limit(1));
     const snapshot = await getDocs(q);
     return !snapshot.empty;
@@ -49,8 +47,7 @@ export async function getInventory(): Promise<Product[]> {
   }
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const inventoryCollectionRef = collection(dataDocRef, INVENTORY_COLLECTION);
+    const inventoryCollectionRef = collection(db, INVENTORY_COLLECTION);
     const snapshot = await getDocs(inventoryCollectionRef);
     
     return snapshot.docs.map(doc => {
@@ -89,8 +86,7 @@ export async function addProduct(prevState: any, formData: FormData) {
 
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const inventoryCollectionRef = collection(dataDocRef, INVENTORY_COLLECTION);
+    const inventoryCollectionRef = collection(db, INVENTORY_COLLECTION);
     const newProduct = {
       ...validatedFields.data,
       status: 'Available',
@@ -112,8 +108,7 @@ export async function updateProduct(id: string, data: Partial<Product>) {
         return;
     }
     try {
-        const dataDocRef = doc(db, DATA_PATH);
-        const productRef = doc(collection(dataDocRef, INVENTORY_COLLECTION), id);
+        const productRef = doc(db, `${INVENTORY_COLLECTION}/${id}`);
         await updateDoc(productRef, { ...data, updatedAt: serverTimestamp() });
         revalidatePath('/dashboard/inventory');
     } catch (error) {
@@ -127,8 +122,7 @@ export async function deleteProduct(product: Product) {
         return { success: false, error: 'Firebase not configured.' };
     }
     try {
-        const dataDocRef = doc(db, DATA_PATH);
-        const productRef = doc(dataDocRef, `${INVENTORY_COLLECTION}/${product.id}`);
+        const productRef = doc(db, `${INVENTORY_COLLECTION}/${product.id}`);
         
         await updateDoc(productRef, {
             status: 'Deleted',

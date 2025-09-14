@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -10,7 +9,6 @@ import { summarizeInvoice } from '@/ai/flows/invoice-summary';
 import type { Invoice, InvoiceItem, Product, Customer, InvoiceDetail, InvoiceHistory, EditHistoryEntry, Payment, TenderDetail } from '@/lib/types';
 import { getInventory } from './inventory';
 import { _createPaymentWithinTransaction } from './payment';
-import { DATA_PATH } from '../db-path';
 
 const InvoiceSummarySchema = z.object({
   items: z.array(z.object({
@@ -53,9 +51,8 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
     return [];
   }
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const invoicesCollectionRef = collection(dataDocRef, INVOICES_COLLECTION);
-    const customersCollectionRef = collection(dataDocRef, CUSTOMERS_COLLECTION);
+    const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
+    const customersCollectionRef = collection(db, CUSTOMERS_COLLECTION);
 
     const [invoiceSnapshot, customersSnapshot] = await Promise.all([
         getDocs(query(invoicesCollectionRef, where('status', '!=', 'Voided'))),
@@ -137,8 +134,7 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
         return null;
     }
     try {
-        const dataDocRef = doc(db, DATA_PATH);
-        const invoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${id}`);
+        const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${id}`);
         const invoiceSnap = await getDoc(invoiceRef);
 
         if (!invoiceSnap.exists()) {
@@ -152,7 +148,7 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
         const itemsSnapshot = await getDocs(itemsCollectionRef);
         const items = itemsSnapshot.docs.map(itemDoc => ({ id: itemDoc.id, ...itemDoc.data() } as InvoiceItem));
 
-        const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${invoiceData.customerId}`);
+        const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${invoiceData.customerId}`);
         const customerSnap = await getDoc(customerRef);
         
         if (!customerSnap.exists()) {
@@ -173,7 +169,7 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
         let payments: Payment[] = [];
         if (invoiceData.paymentIds && invoiceData.paymentIds.length > 0) {
             const paymentPromises = invoiceData.paymentIds.map(pid => 
-                getDoc(doc(dataDocRef, `${PAYMENTS_COLLECTION}/${pid}`))
+                getDoc(doc(db, `${PAYMENTS_COLLECTION}/${pid}`))
             );
             const paymentDocs = await Promise.all(paymentPromises);
             payments = paymentDocs
@@ -206,8 +202,7 @@ export async function getLatestInvoiceNumber(): Promise<number> {
     return 1000;
   }
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const invoicesCollectionRef = collection(dataDocRef, INVOICES_COLLECTION);
+    const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
     const snapshot = await getDocs(invoicesCollectionRef);
 
     if (snapshot.empty) {
@@ -243,14 +238,13 @@ interface CreateInvoicePayload {
  * This is the "Master Chef" function. It does NOT commit the batch.
  * @returns The DocumentReference of the new invoice.
  */
-export async function _createInvoiceWithItems(
+export function _createInvoiceWithItems(
   batch: WriteBatch,
   payload: CreateInvoicePayload
-): Promise<DocumentReference> {
+): DocumentReference {
   const { invoiceData, items, customer } = payload;
   
-  const dataDocRef = doc(db, DATA_PATH);
-  const invoiceRef = doc(collection(dataDocRef, INVOICES_COLLECTION));
+  const invoiceRef = doc(collection(db, INVOICES_COLLECTION));
 
   const finalInvoiceData = { ...invoiceData, createdAt: serverTimestamp() };
   batch.set(invoiceRef, finalInvoiceData);
@@ -261,10 +255,10 @@ export async function _createInvoiceWithItems(
     batch.set(itemRef, { ...item, inventoryId: item.isCustom ? null : item.id });
 
     if (!item.isCustom && item.id) {
-      const inventoryItemRef = doc(dataDocRef, `${INVENTORY_COLLECTION}/${item.id}`);
+      const inventoryItemRef = doc(db, `${INVENTORY_COLLECTION}/${item.id}`);
       // Note: We expect the calling function to have verified inventory existence.
       // In a real-world scenario, you might re-fetch here if not using a transaction.
-      const productHistoryRef = doc(collection(dataDocRef, INVENTORY_HISTORY_COLLECTION));
+      const productHistoryRef = doc(collection(db, INVENTORY_HISTORY_COLLECTION));
       batch.set(productHistoryRef, {
         // This assumes 'item' has enough product details, which might need adjustment.
         // For now, we'll store what we have. A better approach might fetch the full product.
@@ -314,7 +308,6 @@ export async function sendInvoice({ invoiceData, items, customer, cashAmount, ca
 
     try {
         const batch = writeBatch(db);
-        const dataDocRef = doc(db, DATA_PATH);
 
         const amountDue = invoiceData.total - totalPaid;
         let status: Invoice['status'] = 'Draft';
@@ -329,10 +322,10 @@ export async function sendInvoice({ invoiceData, items, customer, cashAmount, ca
             paymentIds: [],
         };
 
-        const invoiceRef = await _createInvoiceWithItems(batch, { invoiceData: finalInvoiceData, items, customer });
+        const invoiceRef = _createInvoiceWithItems(batch, { invoiceData: finalInvoiceData, items, customer });
 
         if (totalPaid > 0) {
-            const paymentId = await _createPaymentWithinTransaction(
+            const paymentId = _createPaymentWithinTransaction(
               batch, 
               customer.id, 
               totalPaid, 
@@ -344,7 +337,7 @@ export async function sendInvoice({ invoiceData, items, customer, cashAmount, ca
         }
         
         if (customer.id !== WALK_IN_CUSTOMER_ID && amountDue > 0) {
-            const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${customer.id}`);
+            const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${customer.id}`);
             batch.update(customerRef, { debt: increment(amountDue) });
         }
         
@@ -380,8 +373,7 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
   }
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const invoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${originalInvoice.id}`);
+    const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${originalInvoice.id}`);
     
     // Server-side validation: Fetch the latest invoice state
     const currentInvoiceSnap = await getDoc(invoiceRef);
@@ -466,7 +458,7 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
     // A full implementation would need to track item-level changes to restock/un-stock inventory.
     const totalDifference = updatedInvoice.total - originalInvoice.total;
     if (totalDifference !== 0 && originalInvoice.customer.id !== WALK_IN_CUSTOMER_ID) {
-      const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${originalInvoice.customer.id}`);
+      const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${originalInvoice.customer.id}`);
       batch.update(customerRef, { debt: increment(totalDifference) });
     }
 
@@ -497,8 +489,7 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
   }
 
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const originalInvoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${invoice.id}`);
+    const originalInvoiceRef = doc(db, `${INVOICES_COLLECTION}/${invoice.id}`);
 
     // Server-side validation
     const currentInvoiceSnap = await getDoc(originalInvoiceRef);
@@ -518,11 +509,11 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
     // Since we now only allow voiding 'Unpaid' invoices, the debt reversal logic simplifies.
     // We just reverse the full total of the invoice.
     if (invoice.customer.id !== WALK_IN_CUSTOMER_ID) {
-        const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${invoice.customer.id}`);
+        const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${invoice.customer.id}`);
         batch.update(customerRef, { debt: increment(-invoice.total) });
     }
     
-    const inventoryHistoryRef = collection(dataDocRef, INVENTORY_HISTORY_COLLECTION);
+    const inventoryHistoryRef = collection(db, INVENTORY_HISTORY_COLLECTION);
     const q = query(inventoryHistoryRef, where('invoiceId', '==', invoice.id));
     const historyItemsSnap = await getDocs(q);
 
@@ -532,7 +523,7 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
       const { status, amount, movedAt, customerId, customerName, invoiceId, ...originalProduct } = historyItem;
 
       if (originalProduct.id && originalProduct.brand && originalProduct.model) {
-        const inventoryRef = doc(dataDocRef, `${INVENTORY_COLLECTION}/${originalProduct.id}`);
+        const inventoryRef = doc(db, `${INVENTORY_COLLECTION}/${originalProduct.id}`);
         batch.set(inventoryRef, { ...originalProduct, status: 'Available' }); 
       }
       

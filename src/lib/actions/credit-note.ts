@@ -2,10 +2,9 @@
 'use server';
 
 import { db, isConfigured } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection } from 'firebase/firestore';
 import type { CreditNoteDetail, Customer } from '@/lib/types';
 import { getCustomers } from './customers';
-import { DATA_PATH } from '../db-path';
 
 const CREDIT_NOTES_COLLECTION = 'credit_notes';
 
@@ -14,8 +13,7 @@ export async function getCreditNoteById(id: string): Promise<CreditNoteDetail | 
     return null;
   }
   try {
-    const dataDocRef = doc(db, DATA_PATH);
-    const creditNoteRef = doc(dataDocRef, `${CREDIT_NOTES_COLLECTION}/${id}`);
+    const creditNoteRef = doc(db, `${CREDIT_NOTES_COLLECTION}/${id}`);
     const creditNoteSnap = await getDoc(creditNoteRef);
 
     if (!creditNoteSnap.exists()) {
