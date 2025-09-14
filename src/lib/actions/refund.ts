@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -44,7 +45,7 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
         await runTransaction(db, async (transaction) => {
             const dataDocRef = doc(db, DATA_PATH);
             const originalInvoiceRef = doc(dataDocRef, `${INVOICES_COLLECTION}/${originalInvoice.id}`);
-            const customerRef = doc(dataDocRef, `${CUSTOMERS_COLLECTION}/${customer.id}`);
+            const customerRef = doc(dataDocRef, `${CUSTOMERS_COLlection}/${customer.id}`);
 
             // === 1. Create the Credit Note ===
             const creditNoteRef = doc(collection(dataDocRef, CREDIT_NOTES_COLLECTION));
