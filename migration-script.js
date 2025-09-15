@@ -1,3 +1,4 @@
+
 const admin = require('firebase-admin');
 
 // --- Step 1: Configuration ---
@@ -9,60 +10,99 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// --- Configuration: These are the two collections we need to read from ---
+// --- Configuration for source and destination paths ---
+const SOURCE_CUSTOMERS_PATH = 'customers';
 const SOURCE_INVOICES_PATH = 'invoices';
 const SOURCE_INVOICE_ITEMS_PATH = 'invoice_items'; 
 
-// --- Destination paths ---
 const DEST_ROOT_PATH = 'wholease/data';
+const DEST_CUSTOMERS_PATH = `${DEST_ROOT_PATH}/customers`;
 const DEST_INVOICES_PATH = `${DEST_ROOT_PATH}/invoices`;
 
-console.log('Starting FINAL diagnostic migration script...');
+console.log('Starting comprehensive Firestore data migration...');
+console.log(`Source Customers: /${SOURCE_CUSTOMERS_PATH}`);
+console.log(`Source Invoices: /${SOURCE_INVOICES_PATH}`);
+console.log(`Destination Path: /${DEST_ROOT_PATH}`);
+console.log('---');
+
 
 async function migrateData() {
     const batch = db.batch();
 
-    console.log(`Reading invoices from '${SOURCE_INVOICES_PATH}' and their items from '${SOURCE_INVOICE_ITEMS_PATH}'...`);
+    // --- Migrate Customers ---
+    console.log('Migrating Customers...');
+    const customersSnapshot = await db.collection(SOURCE_CUSTOMERS_PATH).get();
+    let customerCount = 0;
+
+    customersSnapshot.forEach(doc => {
+        const data = doc.data();
+        const newCustomerData = {
+            name: data.customerName || data.name || 'Unknown Customer',
+            email: data.email || '',
+            phone: data.phone || '',
+            address: data.address || '',
+            notes: data.notes || '',
+            debt: data.debt || 0,
+            status: data.status || 'active',
+            customerType: data.customerType || 'retail',
+            createdAt: data.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+        };
+        const newDocRef = db.collection(DEST_CUSTOMERS_PATH).doc(doc.id);
+        batch.set(newDocRef, newCustomerData);
+        customerCount++;
+    });
+    console.log(` -> Scheduled ${customerCount} customers for migration.`);
+
+
+    // --- Migrate Invoices and Invoice Items ---
+    console.log('\nMigrating Invoices and their Items...');
     const invoicesSnapshot = await db.collection(SOURCE_INVOICES_PATH).get();
     let invoiceCount = 0;
     let itemsCount = 0;
 
     for (const invoiceDoc of invoicesSnapshot.docs) {
-        const invoiceData = invoiceDoc.data();
+        const data = invoiceDoc.data();
         
-        // --- DEBUG: Announce which invoice we are processing ---
-        console.log(`\nProcessing Invoice ID: ${invoiceDoc.id}`);
+        const newInvoiceData = {
+            invoiceNumber: data.invoiceNumber || '',
+            customerId: data.customerId || '',
+            customerName: data.customerName || 'Walk-In Customer',
+            subtotal: data.subtotal || data.totalAmount || data.total || 0,
+            tax: data.tax || 0,
+            discount: data.discount || 0,
+            total: data.totalAmount || data.total || 0,
+            issueDate: data.date || data.issueDate || new Date().toISOString().split('T')[0],
+            dueDate: data.dueDate || data.date || new Date().toISOString().split('T')[0],
+            status: data.status || 'Paid',
+            summary: data.summary || '',
+            amountPaid: data.amountPaid || 0,
+            paymentIds: data.paymentIds || [],
+            createdAt: data.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+        };
 
         const newInvoiceRef = db.collection(DEST_INVOICES_PATH).doc(invoiceDoc.id);
-        const newInvoiceData = {
-            invoiceNumber: invoiceData.invoiceNumber || '',
-            customerId: invoiceData.customerId || '',
-            customerName: invoiceData.customerName || 'Walk-In Customer',
-            total: invoiceData.totalAmount || invoiceData.total || 0,
-            issueDate: invoiceData.date || invoiceData.issueDate || '2025-09-14',
-        };
         batch.set(newInvoiceRef, newInvoiceData);
         invoiceCount++;
 
-        // --- Find all items belonging to this specific invoice ---
         const itemsQuerySnapshot = await db.collection(SOURCE_INVOICE_ITEMS_PATH)
                                           .where('invoiceId', '==', invoiceDoc.id)
                                           .get();
         
-        // --- DEBUG: Report if we found any items ---
         if (itemsQuerySnapshot.empty) {
-            console.log(` -> ❌ WARNING: No items found for this invoice. Please check your '/invoice_items' collection for any document that has an 'invoiceId' field with the value '${invoiceDoc.id}'.`);
+            console.log(` -> ❌ WARNING: No items found for invoice ${invoiceDoc.id}.`);
         } else {
-            console.log(` -> ✅ SUCCESS: Found ${itemsQuerySnapshot.size} item(s) for this invoice.`);
+            console.log(` -> ✅ Found ${itemsQuerySnapshot.size} item(s) for invoice ${invoiceDoc.id}.`);
             itemsQuerySnapshot.forEach(itemDoc => {
                 const item = itemDoc.data();
 
                 const newItemData = {
-                    name: item.name || 'Item Name Missing',
+                    productName: item.name || item.productName || 'Custom Item',
+                    description: item.description || '',
                     quantity: item.quantity || 1,
                     unitPrice: item.unitPrice || 0,
-                    lineTotal: item.lineTotal || 0,
-                    description: item.description || '',
+                    total: item.lineTotal || item.total || (item.quantity * item.unitPrice) || 0,
+                    isCustom: item.isCustom !== undefined ? item.isCustom : true,
+                    inventoryId: item.inventoryId || null,
                 };
                 
                 const newItemRef = newInvoiceRef.collection('invoice_items').doc(itemDoc.id);
@@ -71,16 +111,19 @@ async function migrateData() {
             });
         }
     }
-    
-    console.log(`\n--------------------------------------------------`);
-    console.log(`Scheduled ${invoiceCount} invoices for migration.`);
-    console.log(`Found and scheduled ${itemsCount} total invoice items.`);
+    console.log(` -> Scheduled ${invoiceCount} invoices for migration.`);
+    console.log(` -> Scheduled ${itemsCount} invoice items for subcollection migration.`);
 
+    // Commit all the changes at once
     console.log('\nCommitting all changes to the database...');
     await batch.commit();
 
     console.log('---');
     console.log('✅ Migration complete!');
+    console.log(`Total customers migrated: ${customerCount}`);
+    console.log(`Total invoices migrated: ${invoiceCount}`);
+    console.log(`Total invoice items migrated to subcollections: ${itemsCount}`);
+
 }
 
 migrateData().catch(error => {

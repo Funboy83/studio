@@ -90,7 +90,7 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
       const isEdited = historySnapshot.size > 1;
 
       const baseCustomer = customerMap.get(invoiceData.customerId);
-      if (!baseCustomer) continue; // Skip if customer not found
+      if (!baseCustomer) continue; 
 
       const finalCustomerName = invoiceData.customerName || baseCustomer.name;
       const customer = { ...baseCustomer, name: finalCustomerName };
@@ -103,6 +103,12 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
         customer,
         items,
         isEdited,
+        // Ensure numeric fields have defaults to prevent crashes
+        total: invoiceData.total || 0,
+        subtotal: invoiceData.subtotal || 0,
+        tax: invoiceData.tax || 0,
+        discount: invoiceData.discount || 0,
+        amountPaid: invoiceData.amountPaid || 0,
       };
       
       invoiceDetails.push(invoiceDetail);
