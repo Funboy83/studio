@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -90,25 +91,20 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
       const historySnapshot = await getDocs(historyCollectionRef);
       const isEdited = historySnapshot.size > 1;
 
-      let customer: Customer | undefined;
-      if (invoiceData.customerId === WALK_IN_CUSTOMER_ID) {
-        customer = customerMap.get(WALK_IN_CUSTOMER_ID);
-        if (customer) {
-            customer = { ...customer, name: invoiceData.customerName || 'Walk-In Customer' };
-        }
-      } else {
-        customer = customerMap.get(invoiceData.customerId);
-      }
+      const baseCustomer = customerMap.get(invoiceData.customerId);
+      if (!baseCustomer) continue; // Skip if customer not found
+
+      // Prioritize the name stored on the invoice, fallback to the customer record's name
+      const finalCustomerName = invoiceData.customerName || baseCustomer.name;
+      const customer = { ...baseCustomer, name: finalCustomerName };
       
-      if (customer) {
-        const invoiceBase = { ...invoiceData, id: invoiceDoc.id, createdAt } as Invoice;
-        invoiceDetails.push({
-          ...invoiceBase,
-          customer,
-          items,
-          isEdited
-        });
-      }
+      const invoiceBase = { ...invoiceData, id: invoiceDoc.id, createdAt } as Invoice;
+      invoiceDetails.push({
+        ...invoiceBase,
+        customer,
+        items,
+        isEdited
+      });
     }
     
     const statusOrder = ['Unpaid', 'Partial', 'Paid', 'Draft', 'Overdue'];
@@ -120,7 +116,7 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
         if (indexA !== indexB) {
             return indexA - indexB;
         }
-        return new Date(b.createdAt).getTime() - new Date(b.createdAt).getTime();
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     return invoiceDetails;
@@ -156,15 +152,15 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
             throw new Error(`Customer with ID ${invoiceData.customerId} not found for invoice ${id}`);
         }
         const customerData = customerSnap.data();
-        const customer = { 
+        let customer = { 
             id: customerSnap.id,
             ...customerData,
             createdAt: customerData.createdAt?.toDate ? customerData.createdAt.toDate().toISOString() : new Date().toISOString(),
          } as Customer;
 
-        if (invoiceData.customerId === WALK_IN_CUSTOMER_ID) {
-            customer.name = invoiceData.customerName || 'Walk-In Customer';
-        }
+        // Prioritize invoice.customerName if it exists
+        customer.name = invoiceData.customerName || customer.name;
+
 
         // Fetch related payments
         let payments: Payment[] = [];
@@ -203,7 +199,7 @@ export async function getLatestInvoiceNumber(): Promise<number> {
     return 1000;
   }
   try {
-    const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
+    const invoicesCollectionRef = collection(db, INVOICES_COLlection);
     const snapshot = await getDocs(invoicesCollectionRef);
 
     if (snapshot.empty) {

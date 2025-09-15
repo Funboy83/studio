@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db, isConfigured } from '@/lib/firebase';
@@ -144,12 +145,15 @@ export async function getCustomerDetails(id: string): Promise<{ customer: Custom
         const itemsCollectionRef = collection(doc.ref, 'invoice_items');
         const itemsSnapshot = await getDocs(itemsCollectionRef);
         const items = itemsSnapshot.docs.map(itemDoc => ({ id: itemDoc.id, ...itemDoc.data() } as InvoiceItem));
+        
+        // Use the name from the invoice if available, otherwise from the customer record
+        const displayCustomer = { ...customer, name: invoiceData.customerName || customer.name };
 
         return {
           id: doc.id,
           ...invoiceData,
           createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
-          customer: customer,
+          customer: displayCustomer,
           items: items,
         } as InvoiceDetail;
       });
