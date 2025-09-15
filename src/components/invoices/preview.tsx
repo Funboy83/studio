@@ -142,8 +142,8 @@ export function InvoicePreview({ invoice, isEdited = false }: InvoicePreviewProp
                       {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
                   </TableCell>
                   <TableCell className="text-center">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${item.total.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${(item.unitPrice || 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${(item.total || 0).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

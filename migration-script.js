@@ -1,34 +1,30 @@
 
 // This is a one-time migration script to be run with Node.js.
-// It copies data from the root of your Firestore database to a new, specified path,
-// and restructures the `invoice_items` to be a subcollection of `invoices`.
+// It fixes existing invoice documents in Firestore to match the application's expected data structure.
+// Specifically, it renames 'date' to 'issueDate', 'totalAmount' to 'total', and adds missing fields.
 //
-// === IMPORTANT: THIS IS A NON-DESTRUCTIVE SCRIPT ===
-// This script ONLY reads your existing data and creates a copy in a new location.
-// It does NOT delete, remove, or modify your original data in any way.
-// Your source data at the root of Firestore will remain untouched.
-// ===================================================
+// === IMPORTANT: THIS SCRIPT MODIFIES YOUR DATA IN-PLACE ===
+// This script will directly update your invoice documents in the specified path.
+// It is recommended to back up your data before running this script if you are unsure.
+// ==========================================================
 
 // ====== SETUP ======
-// 1. Install Firebase Admin SDK:
+// 1. If you haven't already, install Firebase Admin SDK:
 //    npm install firebase-admin
 //
-// 2. Get your Service Account Key:
-//    - Go to your Firebase project settings > Service accounts.
-//    - Click "Generate new private key" and download the JSON file.
-//    - Place the downloaded file in the root of this project and rename it to "serviceAccountKey.json".
+// 2. Make sure your Service Account Key file is in the project root:
+//    - It should be named "serviceAccountKey.json".
 //
-// 3. Configure Paths:
-//    - Set the `destinationPath` below to where you want the new data to live.
+// 3. Configure the path to your invoices below.
 //
-// 4. Run the script:
-//    node migration-script.js
+// 4. Run the script from your project's root directory:
+//    node fix-invoices-script.js
 // ===================
 
 const admin = require('firebase-admin');
 
 // --- Step 1: Configuration ---
-const serviceAccount = require('./serviceAccountKey.json'); // **IMPORTANT**: Replace with your key file.
+const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -36,123 +32,86 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// Define where the new, structured data will be stored.
-const destinationPath = 'wholease/data';
-console.log(`Destination path set to: ${destinationPath}`);
+// Define where your invoices are stored.
+const invoicesCollectionPath = 'wholease/data/invoices';
+console.log(`Targeting invoices collection at: ${invoicesCollectionPath}`);
 
 
 // --- Step 2: Main Migration Function ---
-async function migrateData() {
-  console.log('Starting Firestore data migration...');
-  console.log('NOTE: This is a NON-DESTRUCTIVE copy. Original data will NOT be deleted.');
+async function fixInvoiceData() {
+  console.log('Starting Firestore invoice data fix...');
+  console.log('NOTE: This script will modify your invoice documents in-place.');
 
-  // --- Migrate Simple Collections ---
-  // These collections can be copied directly.
-  await migrateCollection('customers', `${destinationPath}/customers`);
-  await migrateCollection('inventory', `${destinationPath}/inventory`);
-  await migrateCollection('options_brand', `${destinationPath}/options_brand`);
-  await migrateCollection('options_carrier', `${destinationPath}/options_carrier`);
-  await migrateCollection('options_color', `${destinationPath}/options_color`);
-  await migrateCollection('options_condition', `${destinationPath}/options_condition`);
-  await migrateCollection('options_grade', `${destinationPath}/options_grade`);
-  await migrateCollection('options_storage', `${destinationPath}/options_storage`);
-  
-  // --- Migrate Invoices and Restructure Items ---
-  await migrateInvoicesAndItems('invoices', 'invoice_items', `${destinationPath}/invoices`);
-
-  console.log('---');
-  console.log('✅ Data migration (copy) completed successfully!');
-  console.log('Your original data remains untouched.');
-}
-
-
-// --- Step 3: Helper Functions ---
-
-/**
- * Copies a collection from a source path to a destination path.
- * This function does NOT delete the source documents.
- */
-async function migrateCollection(sourceCollectionName, destinationCollectionPath) {
-  console.log(`Copying collection: ${sourceCollectionName}...`);
-  const sourceCollection = db.collection(sourceCollectionName);
-  const destinationCollection = db.collection(destinationCollectionPath);
-  const snapshot = await sourceCollection.get();
+  const invoicesCollection = db.collection(invoicesCollectionPath);
+  const snapshot = await invoicesCollection.get();
 
   if (snapshot.empty) {
-    console.log(`  -> No documents found in ${sourceCollectionName}. Skipping.`);
+    console.log('No invoices found in the specified collection. Nothing to do.');
     return;
   }
 
-  // Use a batch to write the new documents. No delete operations are included.
+  // Use a batch to perform all writes at once for efficiency and atomicity.
   const batch = db.batch();
+  let updatedCount = 0;
+
   snapshot.docs.forEach(doc => {
-    const newDocRef = destinationCollection.doc(doc.id);
-    batch.set(newDocRef, doc.data());
-  });
+    const invoiceData = doc.data();
+    let needsUpdate = false;
+    const updates = {};
 
-  await batch.commit();
-  console.log(`  -> Copied ${snapshot.size} documents to ${destinationCollectionPath}.`);
-}
+    // 1. Rename 'date' to 'issueDate'
+    if (invoiceData.date && !invoiceData.issueDate) {
+      updates.issueDate = invoiceData.date;
+      updates.date = admin.firestore.FieldValue.delete(); // Remove the old field
+      needsUpdate = true;
+    }
+    
+    // 2. Rename 'totalAmount' to 'total'
+    if (invoiceData.totalAmount !== undefined && invoiceData.total === undefined) {
+      updates.total = invoiceData.totalAmount;
+      updates.totalAmount = admin.firestore.FieldValue.delete(); // Remove the old field
+      needsUpdate = true;
+    }
+    
+    // 3. Add missing required fields with default values
+    if (invoiceData.dueDate === undefined) {
+      updates.dueDate = invoiceData.date || new Date().toISOString().split('T')[0]; // Default to issueDate or today
+      needsUpdate = true;
+    }
+    if (invoiceData.discount === undefined) {
+      updates.discount = 0;
+      needsUpdate = true;
+    }
+    if (invoiceData.amountPaid === undefined) {
+      updates.amountPaid = 0;
+      needsUpdate = true;
+    }
+    if (invoiceData.paymentIds === undefined) {
+        updates.paymentIds = [];
+        needsUpdate = true;
+    }
+     if (invoiceData.customerName === undefined && invoiceData.customerId) {
+        updates.customerName = "Walk-In Customer"; // Add default name if missing
+        needsUpdate = true;
+    }
 
 
-/**
- * Migrates invoices and restructures their items as a subcollection.
- * This function does NOT delete the source invoices or items.
- */
-async function migrateInvoicesAndItems(sourceInvoices, sourceItems, destinationInvoicesPath) {
-  console.log('Copying invoices and restructuring items...');
-  const itemsSnapshot = await db.collection(sourceItems).get();
-  const invoicesSnapshot = await db.collection(sourceInvoices).get();
-
-  // Group all items by their invoiceId
-  const itemsByInvoiceId = new Map();
-  itemsSnapshot.forEach(doc => {
-    const item = doc.data();
-    if (item.invoiceId) {
-      if (!itemsByInvoiceId.has(item.invoiceId)) {
-        itemsByInvoiceId.set(item.invoiceId, []);
-      }
-      itemsByInvoiceId.get(item.invoiceId).push({id: doc.id, ...item});
+    if (needsUpdate) {
+      console.log(`  -> Scheduling update for invoice ID: ${doc.id}`);
+      batch.update(doc.ref, updates);
+      updatedCount++;
     }
   });
-  console.log(`  -> Found and grouped items for ${itemsByInvoiceId.size} invoices.`);
 
-  if (invoicesSnapshot.empty) {
-      console.log('  -> No invoices found to copy. Skipping.');
-      return;
+  if (updatedCount > 0) {
+    await batch.commit();
+    console.log(`---`);
+    console.log(`✅ Successfully updated ${updatedCount} invoice documents.`);
+  } else {
+    console.log(`---`);
+    console.log('✅ All invoice documents already seem to be in the correct format.');
   }
-
-  // Use a batched write to handle all new invoices and their new items efficiently.
-  const batch = db.batch();
-
-  invoicesSnapshot.docs.forEach(invoiceDoc => {
-    const invoiceData = invoiceDoc.data();
-    const invoiceId = invoiceDoc.id;
-
-    // Set the main invoice document in the new location.
-    const newInvoiceRef = db.collection(destinationInvoicesPath).doc(invoiceId);
-    batch.set(newInvoiceRef, invoiceData);
-
-    // Now, add its items to the subcollection.
-    const items = itemsByInvoiceId.get(invoiceId) || [];
-    if (items.length > 0) {
-      items.forEach(item => {
-        // Create a ref for the new item in the subcollection of the new invoice.
-        const newItemRef = newInvoiceRef.collection('invoice_items').doc(item.id);
-        // The line below creates a new object `itemData` without the `invoiceId` field.
-        // It does NOT modify the original item object.
-        const { invoiceId, ...itemData } = item;
-        batch.set(newItemRef, itemData);
-      });
-    }
-  });
-
-  await batch.commit();
-  console.log(`  -> Copied ${invoicesSnapshot.size} invoices and their items to ${destinationInvoicesPath}.`);
 }
 
-
-// --- Step 4: Run the Script ---
-migrateData().catch(console.error);
-
-
+// --- Step 3: Run the Script ---
+fixInvoiceData().catch(console.error);
