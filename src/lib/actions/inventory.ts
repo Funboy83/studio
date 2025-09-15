@@ -108,7 +108,7 @@ export async function updateProduct(id: string, data: Partial<Product>) {
         return;
     }
     try {
-        const productRef = doc(db, `${INVENTORY_COLLECTION}/${id}`);
+        const productRef = doc(db, INVENTORY_COLLECTION, id);
         await updateDoc(productRef, { ...data, updatedAt: serverTimestamp() });
         revalidatePath('/dashboard/inventory');
     } catch (error) {
@@ -122,7 +122,7 @@ export async function deleteProduct(product: Product) {
         return { success: false, error: 'Firebase not configured.' };
     }
     try {
-        const productRef = doc(db, `${INVENTORY_COLLECTION}/${product.id}`);
+        const productRef = doc(db, INVENTORY_COLLECTION, product.id);
         
         await updateDoc(productRef, {
             status: 'Deleted',

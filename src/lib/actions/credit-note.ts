@@ -13,7 +13,7 @@ export async function getCreditNoteById(id: string): Promise<CreditNoteDetail | 
     return null;
   }
   try {
-    const creditNoteRef = doc(db, `${CREDIT_NOTES_COLLECTION}/${id}`);
+    const creditNoteRef = doc(db, CREDIT_NOTES_COLLECTION, id);
     const creditNoteSnap = await getDoc(creditNoteRef);
 
     if (!creditNoteSnap.exists()) {

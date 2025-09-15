@@ -44,7 +44,7 @@ export async function getPayments(): Promise<PaymentDetail[]> {
       const customer = data.customerId ? customerMap.get(data.customerId) : undefined;
       
       const appliedToInvoicesPromises = (data.appliedToInvoices || []).map(async (invoiceId) => {
-          const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${invoiceId}`);
+          const invoiceRef = doc(db, INVOICES_COLLECTION, invoiceId);
           const invoiceSnap = await getDoc(invoiceRef);
           if (!invoiceSnap.exists()) return null;
 
@@ -149,7 +149,7 @@ export async function applyPayment(payload: ApplyPaymentPayload): Promise<{ succ
 
   try {
     await runTransaction(db, async (transaction) => {
-      const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${customerId}`);
+      const customerRef = doc(db, CUSTOMERS_COLLECTION, customerId);
       const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
       
       // --- 1. READ PHASE ---
@@ -182,7 +182,7 @@ export async function applyPayment(payload: ApplyPaymentPayload): Promise<{ succ
       for (const invoice of outstandingInvoices) {
         if (paymentRemaining <= 0) break;
         
-        const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${invoice.id}`);
+        const invoiceRef = doc(db, INVOICES_COLLECTION, invoice.id);
         const currentAmountPaid = invoice.amountPaid || 0;
         const amountDueOnInvoice = invoice.total - currentAmountPaid;
         

@@ -13,7 +13,7 @@ export async function getInvoiceEditHistory(invoiceId: string): Promise<EditHist
   }
 
   try {
-    const invoiceRef = doc(db, `${INVOICES_COLLECTION}/${invoiceId}`);
+    const invoiceRef = doc(db, INVOICES_COLLECTION, invoiceId);
     const historyCollectionRef = collection(invoiceRef, 'edit_history');
     
     const historyQuery = query(historyCollectionRef, orderBy('timestamp', 'desc'));

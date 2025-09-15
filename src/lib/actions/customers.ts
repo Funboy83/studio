@@ -111,7 +111,7 @@ export async function getCustomerDetails(id: string): Promise<{ customer: Custom
     return null;
   }
   try {
-    const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${id}`);
+    const customerRef = doc(db, CUSTOMERS_COLLECTION, id);
     const customerSnap = await getDoc(customerRef);
 
     if (!customerSnap.exists()) {

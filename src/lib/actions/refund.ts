@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -58,13 +57,13 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
         };
         batch.set(creditNoteRef, creditNoteData);
 
-        const originalInvoiceRef = doc(db, `${INVOICES_COLLECTION}/${originalInvoice.id}`);
+        const originalInvoiceRef = doc(db, INVOICES_COLLECTION, originalInvoice.id);
         batch.update(originalInvoiceRef, { relatedCreditNoteId: creditNoteRef.id });
 
         // === 2. Handle Inventory for Returned Items ===
         for (const item of returnedItems) {
             if (!item.isCustom && item.inventoryId) {
-                const productRef = doc(db, `${INVENTORY_COLLECTION}/${item.inventoryId}`);
+                const productRef = doc(db, INVENTORY_COLLECTION, item.inventoryId);
                 batch.update(productRef, { status: 'Available' });
             }
         }
@@ -99,7 +98,7 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
             // === 4. Link Payments to New Invoice ===
             const paymentIds: string[] = [];
             if (creditToApply > 0) {
-                const storeCreditPaymentId = _createPaymentWithinTransaction(
+                const storeCreditPaymentId = await _createPaymentWithinTransaction(
                     batch, customer.id, creditToApply, 
                     { storeCreditAmount: creditToApply, cashAmount: 0, checkAmount: 0, cardAmount: 0 },
                     [newInvoiceRef.id]
@@ -107,7 +106,7 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
                 paymentIds.push(storeCreditPaymentId);
             }
             if (totalNewPayment > 0) {
-                 const newPaymentId = _createPaymentWithinTransaction(
+                 const newPaymentId = await _createPaymentWithinTransaction(
                     batch, customer.id, totalNewPayment, 
                     { cashAmount: paymentMade.cash, cardAmount: paymentMade.card, checkAmount: 0 },
                     [newInvoiceRef.id]
@@ -119,7 +118,7 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
         
         // === 5. Handle Final Refund if Due ===
         if (remainingCreditAfterExchange > 0 && refundMethod) {
-            const refundPaymentId = _createPaymentWithinTransaction(
+            const refundPaymentId = await _createPaymentWithinTransaction(
                 batch, customer.id, remainingCreditAfterExchange,
                 { 
                     cashAmount: refundMethod === 'Cash' ? remainingCreditAfterExchange : 0, 
@@ -137,7 +136,7 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
 
         // === 6. Update Customer Debt ===
         const debtChange = finalBalance - totalNewPayment;
-        const customerRef = doc(db, `${CUSTOMERS_COLLECTION}/${customer.id}`);
+        const customerRef = doc(db, CUSTOMERS_COLLECTION, customer.id);
         batch.update(customerRef, { debt: increment(debtChange) });
 
         await batch.commit();
