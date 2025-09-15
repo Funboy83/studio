@@ -5,8 +5,9 @@ import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc } from 'firebase/firestore';
 import type { ProductHistory, Customer } from '../types';
 import { getCustomers } from './customers';
+import { DATA_PATH } from '@/lib/db-path';
 
-const INVENTORY_HISTORY_COLLECTION = 'inventory_history';
+const INVENTORY_HISTORY_COLLECTION = `${DATA_PATH}/inventory_history`;
 
 export async function getInventoryHistory(): Promise<ProductHistory[]> {
   if (!isConfigured) {

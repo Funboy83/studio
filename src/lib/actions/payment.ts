@@ -6,6 +6,7 @@ import { db, isConfigured } from '@/lib/firebase';
 import { collection, doc, runTransaction, serverTimestamp, getDocs, where, query, orderBy, increment, WriteBatch, collectionGroup, getDoc } from 'firebase/firestore';
 import type { Invoice, Customer, TenderDetail, Payment, PaymentDetail, InvoiceDetail, InvoiceItem } from '@/lib/types';
 import { getCustomers } from './customers';
+import { DATA_PATH } from '@/lib/db-path';
 
 interface ApplyPaymentPayload {
   customerId: string;
@@ -15,9 +16,9 @@ interface ApplyPaymentPayload {
   notes?: string;
 }
 
-const PAYMENTS_COLLECTION = 'payments';
-const INVOICES_COLLECTION = 'invoices';
-const CUSTOMERS_COLLECTION = 'customers';
+const PAYMENTS_COLLECTION = `${DATA_PATH}/payments`;
+const INVOICES_COLLECTION = `${DATA_PATH}/invoices`;
+const CUSTOMERS_COLLECTION = `${DATA_PATH}/customers`;
 
 export async function getPayments(): Promise<PaymentDetail[]> {
   if (!isConfigured) {

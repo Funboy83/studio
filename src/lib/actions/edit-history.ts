@@ -4,8 +4,9 @@
 import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc } from 'firebase/firestore';
 import type { EditHistoryEntry } from '../types';
+import { DATA_PATH } from '@/lib/db-path';
 
-const INVOICES_COLLECTION = 'invoices';
+const INVOICES_COLLECTION = `${DATA_PATH}/invoices`;
 
 export async function getInvoiceEditHistory(invoiceId: string): Promise<EditHistoryEntry[]> {
   if (!isConfigured) {

@@ -5,8 +5,9 @@ import { db, isConfigured } from '@/lib/firebase';
 import { doc, getDoc, collection } from 'firebase/firestore';
 import type { CreditNoteDetail, Customer } from '@/lib/types';
 import { getCustomers } from './customers';
+import { DATA_PATH } from '@/lib/db-path';
 
-const CREDIT_NOTES_COLLECTION = 'credit_notes';
+const CREDIT_NOTES_COLLECTION = `${DATA_PATH}/credit_notes`;
 
 export async function getCreditNoteById(id: string): Promise<CreditNoteDetail | null> {
   if (!isConfigured) {

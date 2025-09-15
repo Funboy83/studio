@@ -7,9 +7,10 @@ import type { Customer, Invoice, InvoiceDetail, InvoiceItem } from '../types';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import Link from 'next/link';
+import { DATA_PATH } from '@/lib/db-path';
 
-const CUSTOMERS_COLLECTION = 'customers';
-const INVOICES_COLLECTION = 'invoices';
+const CUSTOMERS_COLLECTION = `${DATA_PATH}/customers`;
+const INVOICES_COLLECTION = `${DATA_PATH}/invoices`;
 
 const CustomerSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),

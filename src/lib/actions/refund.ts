@@ -7,12 +7,13 @@ import { collection, doc, runTransaction, serverTimestamp, getDoc, increment, Do
 import type { Invoice, InvoiceItem, Customer, CreditNote, Product } from '@/lib/types';
 import { _createInvoiceWithItems, getLatestInvoiceNumber } from './invoice';
 import { _createPaymentWithinTransaction } from './payment';
+import { DATA_PATH } from '@/lib/db-path';
 
-const INVOICES_COLLECTION = 'invoices';
-const CUSTOMERS_COLLECTION = 'customers';
-const CREDIT_NOTES_COLLECTION = 'credit_notes';
-const PAYMENTS_COLLECTION = 'payments';
-const INVENTORY_COLLECTION = 'inventory';
+const INVOICES_COLLECTION = `${DATA_PATH}/invoices`;
+const CUSTOMERS_COLLECTION = `${DATA_PATH}/customers`;
+const CREDIT_NOTES_COLLECTION = `${DATA_PATH}/credit_notes`;
+const PAYMENTS_COLLECTION = `${DATA_PATH}/payments`;
+const INVENTORY_COLLECTION = `${DATA_PATH}/inventory`;
 
 interface ProcessRefundExchangePayload {
     originalInvoice: Invoice;

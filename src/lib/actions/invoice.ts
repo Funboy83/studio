@@ -9,6 +9,7 @@ import { summarizeInvoice } from '@/ai/flows/invoice-summary';
 import type { Invoice, InvoiceItem, Product, Customer, InvoiceDetail, InvoiceHistory, EditHistoryEntry, Payment, TenderDetail } from '@/lib/types';
 import { getInventory } from './inventory';
 import { _createPaymentWithinTransaction } from './payment';
+import { DATA_PATH } from '@/lib/db-path';
 
 const InvoiceSummarySchema = z.object({
   items: z.array(z.object({
@@ -38,11 +39,11 @@ export async function getInvoiceSummary(items: InvoiceItem[]): Promise<{ summary
   }
 }
 
-const INVOICES_COLLECTION = 'invoices';
-const INVENTORY_COLLECTION = 'inventory';
-const INVENTORY_HISTORY_COLLECTION = 'inventory_history';
-const CUSTOMERS_COLLECTION = 'customers';
-const PAYMENTS_COLLECTION = 'payments';
+const INVOICES_COLLECTION = `${DATA_PATH}/invoices`;
+const INVENTORY_COLLECTION = `${DATA_PATH}/inventory`;
+const INVENTORY_HISTORY_COLLECTION = `${DATA_PATH}/inventory_history`;
+const CUSTOMERS_COLLECTION = `${DATA_PATH}/customers`;
+const PAYMENTS_COLLECTION = `${DATA_PATH}/payments`;
 const WALK_IN_CUSTOMER_ID = 'Aj0l1O2kJcvlF3J0uVMX';
 
 
