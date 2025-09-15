@@ -9,6 +9,7 @@ const firebaseConfig = {
   storageBucket: "management-project-bf767.firebasestorage.app",
   messagingSenderId: "200210418664",
   appId: "1:200210418664:web:bb744d15f07f7ddffe725d",
+  measurementId: "G-DEVBMY87YV"
 };
 
 let app: FirebaseApp;
