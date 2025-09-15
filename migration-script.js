@@ -2,6 +2,12 @@
 // This is a one-time migration script to be run with Node.js.
 // It copies data from the root of your Firestore database to a new, specified path,
 // and restructures the `invoice_items` to be a subcollection of `invoices`.
+//
+// === IMPORTANT: THIS IS A NON-DESTRUCTIVE SCRIPT ===
+// This script ONLY reads your existing data and creates a copy in a new location.
+// It does NOT delete, remove, or modify your original data in any way.
+// Your source data at the root of Firestore will remain untouched.
+// ===================================================
 
 // ====== SETUP ======
 // 1. Install Firebase Admin SDK:
@@ -38,6 +44,7 @@ console.log(`Destination path set to: ${destinationPath}`);
 // --- Step 2: Main Migration Function ---
 async function migrateData() {
   console.log('Starting Firestore data migration...');
+  console.log('NOTE: This is a NON-DESTRUCTIVE copy. Original data will NOT be deleted.');
 
   // --- Migrate Simple Collections ---
   // These collections can be copied directly.
@@ -54,7 +61,8 @@ async function migrateData() {
   await migrateInvoicesAndItems('invoices', 'invoice_items', `${destinationPath}/invoices`);
 
   console.log('---');
-  console.log('✅ Data migration completed successfully!');
+  console.log('✅ Data migration (copy) completed successfully!');
+  console.log('Your original data remains untouched.');
 }
 
 
@@ -62,9 +70,10 @@ async function migrateData() {
 
 /**
  * Copies a collection from a source path to a destination path.
+ * This function does NOT delete the source documents.
  */
 async function migrateCollection(sourceCollectionName, destinationCollectionPath) {
-  console.log(`Migrating collection: ${sourceCollectionName}...`);
+  console.log(`Copying collection: ${sourceCollectionName}...`);
   const sourceCollection = db.collection(sourceCollectionName);
   const destinationCollection = db.collection(destinationCollectionPath);
   const snapshot = await sourceCollection.get();
@@ -74,6 +83,7 @@ async function migrateCollection(sourceCollectionName, destinationCollectionPath
     return;
   }
 
+  // Use a batch to write the new documents. No delete operations are included.
   const batch = db.batch();
   snapshot.docs.forEach(doc => {
     const newDocRef = destinationCollection.doc(doc.id);
@@ -81,15 +91,16 @@ async function migrateCollection(sourceCollectionName, destinationCollectionPath
   });
 
   await batch.commit();
-  console.log(`  -> Migrated ${snapshot.size} documents to ${destinationCollectionPath}.`);
+  console.log(`  -> Copied ${snapshot.size} documents to ${destinationCollectionPath}.`);
 }
 
 
 /**
  * Migrates invoices and restructures their items as a subcollection.
+ * This function does NOT delete the source invoices or items.
  */
 async function migrateInvoicesAndItems(sourceInvoices, sourceItems, destinationInvoicesPath) {
-  console.log('Migrating invoices and restructuring items...');
+  console.log('Copying invoices and restructuring items...');
   const itemsSnapshot = await db.collection(sourceItems).get();
   const invoicesSnapshot = await db.collection(sourceInvoices).get();
 
@@ -107,11 +118,11 @@ async function migrateInvoicesAndItems(sourceInvoices, sourceItems, destinationI
   console.log(`  -> Found and grouped items for ${itemsByInvoiceId.size} invoices.`);
 
   if (invoicesSnapshot.empty) {
-      console.log('  -> No invoices found to migrate. Skipping.');
+      console.log('  -> No invoices found to copy. Skipping.');
       return;
   }
 
-  // Use a batched write to handle all invoices and their items efficiently.
+  // Use a batched write to handle all new invoices and their new items efficiently.
   const batch = db.batch();
 
   invoicesSnapshot.docs.forEach(invoiceDoc => {
@@ -128,17 +139,20 @@ async function migrateInvoicesAndItems(sourceInvoices, sourceItems, destinationI
       items.forEach(item => {
         // Create a ref for the new item in the subcollection of the new invoice.
         const newItemRef = newInvoiceRef.collection('invoice_items').doc(item.id);
-        const { invoiceId, ...itemData } = item; // Remove the old invoiceId field from the item data
+        // The line below creates a new object `itemData` without the `invoiceId` field.
+        // It does NOT modify the original item object.
+        const { invoiceId, ...itemData } = item;
         batch.set(newItemRef, itemData);
       });
     }
   });
 
   await batch.commit();
-  console.log(`  -> Migrated ${invoicesSnapshot.size} invoices and their items to ${destinationInvoicesPath}.`);
+  console.log(`  -> Copied ${invoicesSnapshot.size} invoices and their items to ${destinationInvoicesPath}.`);
 }
 
 
 // --- Step 4: Run the Script ---
 migrateData().catch(console.error);
+
 
