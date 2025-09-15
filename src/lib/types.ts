@@ -13,6 +13,7 @@
 
 
 
+
 export type Product = {
   id: string;
   imei: string;
@@ -80,6 +81,7 @@ export type Invoice = {
   status: 'Paid' | 'Partial' | 'Unpaid' | 'Voided' | 'Draft' | 'Overdue';
   summary?: string;
   createdAt: any;
+  updatedAt?: any;
   amountPaid: number;
   paymentIds: string[];
   relatedCreditNoteId?: string;

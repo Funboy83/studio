@@ -80,8 +80,6 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
 
     for (const invoiceDoc of invoiceSnapshot.docs) {
       const invoiceData = invoiceDoc.data() as Invoice;
-
-      const createdAt = invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString();
       
       const itemsCollectionRef = collection(invoiceDoc.ref, 'invoice_items');
       const itemsSnapshot = await getDocs(itemsCollectionRef);
@@ -98,7 +96,12 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
       const finalCustomerName = invoiceData.customerName || baseCustomer.name;
       const customer = { ...baseCustomer, name: finalCustomerName };
       
-      const invoiceBase = { ...invoiceData, id: invoiceDoc.id, createdAt } as Invoice;
+      const invoiceBase = {
+        ...invoiceData,
+        id: invoiceDoc.id,
+        createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
+      } as Invoice;
+      
       invoiceDetails.push({
         ...invoiceBase,
         customer,
@@ -138,8 +141,7 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
             return null;
         }
 
-        const invoiceData = invoiceSnap.data() as Invoice;
-        const createdAt = invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString();
+        let invoiceData = invoiceSnap.data();
 
         const itemsCollectionRef = collection(invoiceSnap.ref, 'invoice_items');
         const itemsSnapshot = await getDocs(itemsCollectionRef);
@@ -151,7 +153,7 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
         if (!customerSnap.exists()) {
             throw new Error(`Customer with ID ${invoiceData.customerId} not found for invoice ${id}`);
         }
-        const customerData = customerSnap.data();
+        let customerData = customerSnap.data();
         let customer = { 
             id: customerSnap.id,
             ...customerData,
@@ -160,7 +162,6 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
 
         // Prioritize invoice.customerName if it exists
         customer.name = invoiceData.customerName || customer.name;
-
 
         // Fetch related payments
         let payments: Payment[] = [];
@@ -173,16 +174,18 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
                 .filter(doc => doc.exists())
                 .map(docSnap => {
                     const data = docSnap.data();
-                    const paymentDate = data.paymentDate?.toDate ? data.paymentDate.toDate().toISOString() : new Date().toISOString();
-                    return { id: docSnap.id, ...data, paymentDate } as Payment;
+                    return { 
+                        id: docSnap.id, 
+                        ...data,
+                        paymentDate: data.paymentDate?.toDate ? data.paymentDate.toDate().toISOString() : new Date().toISOString()
+                    } as Payment;
                 });
         }
 
-
         return {
-            id: invoiceSnap.id,
             ...invoiceData,
-            createdAt,
+            id: invoiceSnap.id,
+            createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
             customer,
             items,
             payments,
@@ -199,7 +202,7 @@ export async function getLatestInvoiceNumber(): Promise<number> {
     return 1000;
   }
   try {
-    const invoicesCollectionRef = collection(db, INVOICES_COLlection);
+    const invoicesCollectionRef = collection(db, INVOICES_COLLECTION);
     const snapshot = await getDocs(invoicesCollectionRef);
 
     if (snapshot.empty) {
@@ -243,7 +246,7 @@ export async function _createInvoiceWithItems(
   
   const invoiceRef = doc(collection(db, INVOICES_COLLECTION));
 
-  const finalInvoiceData = { ...invoiceData, createdAt: serverTimestamp() };
+  const finalInvoiceData = { ...invoiceData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
   batch.set(invoiceRef, finalInvoiceData);
 
   // Handle inventory updates and history for sold items
@@ -439,7 +442,7 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
     }
     
     // --- 2. Update Invoice Document ---
-    batch.update(invoiceRef, updatedInvoice as any);
+    batch.update(invoiceRef, {...updatedInvoice, updatedAt: serverTimestamp()} as any);
 
     // --- 3. Update/Re-create Items Subcollection ---
     const oldItemsSnapshot = await getDocs(collection(invoiceRef, 'invoice_items'));
@@ -501,7 +504,7 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
 
     const batch = writeBatch(db);
     
-    batch.update(originalInvoiceRef, { status: 'Voided' });
+    batch.update(originalInvoiceRef, { status: 'Voided', updatedAt: serverTimestamp() });
 
     // Since we now only allow voiding 'Unpaid' invoices, the debt reversal logic simplifies.
     // We just reverse the full total of the invoice.
