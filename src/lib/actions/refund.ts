@@ -64,8 +64,16 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
         // === 2. Handle Inventory for Returned Items ===
         for (const item of returnedItems) {
             if (!item.isCustom && item.inventoryId) {
+                // Check if the product exists before trying to update it
                 const productRef = doc(db, INVENTORY_COLLECTION, item.inventoryId);
-                batch.update(productRef, { status: 'Available' });
+                const productSnap = await getDoc(productRef);
+                if (productSnap.exists()) {
+                   batch.update(productRef, { status: 'Available' });
+                } else {
+                    // If product doesn't exist, it might have been from a deleted inventory.
+                    // We can choose to recreate it or log it. For now, let's just log.
+                    console.warn(`Product with ID ${item.inventoryId} not found in inventory for restock.`)
+                }
             }
         }
         
@@ -114,7 +122,9 @@ export async function processRefundExchange(payload: ProcessRefundExchangePayloa
                 );
                 paymentIds.push(newPaymentId);
             }
-            batch.update(newInvoiceRef, { paymentIds });
+            if (paymentIds.length > 0) {
+                batch.update(newInvoiceRef, { paymentIds });
+            }
         }
         
         // === 5. Handle Final Refund if Due ===

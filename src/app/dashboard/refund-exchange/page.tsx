@@ -82,8 +82,8 @@ function CustomerDetailModal({ customerId, isOpen, onOpenChange }: { customerId:
                                 </CardHeader>
                             </Card>
                             <InvoiceTable 
-                                invoices={customerDetails.invoices} 
-                                title="Recent Invoices"
+                                invoices={customerDetails.invoices.filter(inv => inv.status === 'Paid')} 
+                                title="Paid Invoices (Eligible for Refund/Exchange)"
                                 showRefundInQuickView={true}
                             />
                         </>
@@ -102,7 +102,8 @@ export default function RefundExchangePage() {
 
     useAsyncEffect(async () => {
         const fetchedCustomers = await getCustomers();
-        setCustomers(fetchedCustomers);
+        // Filter out the walk-in customer
+        setCustomers(fetchedCustomers.filter(c => c.id !== 'Aj0l1O2kJcvlF3J0uVMX'));
     }, []);
 
     const handleRowClick = (customer: Customer) => {
@@ -111,22 +112,17 @@ export default function RefundExchangePage() {
     };
 
     const stats = {
-        totalRefunds: 24,
-        totalExchanges: 18,
-        pendingActions: 5,
-        refundedValue: 4892.50,
+        totalRefunds: 0,
+        totalExchanges: 0,
+        pendingActions: 0,
+        refundedValue: 0,
     };
 
     return (
         <>
             <div className="flex flex-col gap-6">
                 <h1 className="text-3xl font-bold tracking-tight">Refund & Exchange</h1>
-                <RefundStats
-                    totalRefunds={stats.totalRefunds}
-                    totalExchanges={stats.totalExchanges}
-                    pendingActions={stats.pendingActions}
-                    refundedValue={stats.refundedValue}
-                />
+                <p className="text-muted-foreground">Select a customer to begin a refund or exchange process for one of their paid invoices.</p>
                 <CustomerTable 
                     customers={customers} 
                     showAddCustomerButton={false} 
