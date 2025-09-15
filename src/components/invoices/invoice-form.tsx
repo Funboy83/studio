@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import React, { useState, useMemo, useEffect, useTransition } from 'react';
@@ -270,7 +271,7 @@ export function InvoiceForm({ invoice, inventory, customers }: InvoiceFormProps)
             items, 
             customer: selectedCustomer,
             cashAmount: isCashPayment ? cashAmount : 0,
-            cardAmount: isCashPayment ? cardAmount : 0,
+            cardAmount: isCardPayment ? cardAmount : 0,
         });
 
         if (result.success) {
