@@ -9,7 +9,7 @@ interface InvoiceTemplateProps {
 
 export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
 
-  const notes = "Thank you for your business! Payment is due within 30 days.";
+  const notes = invoice.summary || "Thank you for your business! Payment is due within 30 days.";
 
   return (
     <div className="w-full max-w-4xl mx-auto p-8 bg-white text-black print:p-0 print:shadow-none print:border-0">
