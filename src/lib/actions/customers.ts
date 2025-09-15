@@ -2,7 +2,7 @@
 'use server';
 
 import { db, isConfigured } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, doc, where, getDoc } from 'firestore';
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, doc, where, getDoc } from 'firebase/firestore';
 import type { Customer, Invoice, InvoiceDetail, InvoiceItem } from '../types';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';

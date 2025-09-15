@@ -2,7 +2,7 @@
 'use server';
 
 import { db, isConfigured } from '@/lib/firebase';
-import { doc, getDoc, collection } from 'firestore';
+import { doc, getDoc, collection } from 'firebase/firestore';
 import type { CreditNoteDetail, Customer } from '@/lib/types';
 import { getCustomers } from './customers';
 import { DATA_PATH } from '@/lib/db-path';
