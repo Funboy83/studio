@@ -24,8 +24,8 @@ export function InvoicePreview({ invoice, isEdited = false }: InvoicePreviewProp
   };
 
   return (
-    <>
-      <div className="flex items-center gap-4 print:hidden">
+    <div className="bg-gray-100 p-4 rounded-lg">
+      <div className="flex items-center gap-4 print:hidden mb-4">
         <div className="flex-1" />
         <Button onClick={handlePrint} variant="outline">
           <Printer className="mr-2 h-4 w-4" />
@@ -68,7 +68,9 @@ export function InvoicePreview({ invoice, isEdited = false }: InvoicePreviewProp
           </Card>
       )}
 
-      <InvoiceTemplate invoice={invoice} isEdited={isEdited} />
-    </>
+      <div className="bg-white shadow-lg print:shadow-none">
+        <InvoiceTemplate invoice={invoice} />
+      </div>
+    </div>
   );
 }
