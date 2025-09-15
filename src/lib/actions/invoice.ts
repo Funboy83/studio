@@ -92,23 +92,20 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
       const baseCustomer = customerMap.get(invoiceData.customerId);
       if (!baseCustomer) continue; // Skip if customer not found
 
-      // Prioritize the name stored on the invoice, fallback to the customer record's name
       const finalCustomerName = invoiceData.customerName || baseCustomer.name;
       const customer = { ...baseCustomer, name: finalCustomerName };
       
-      const invoiceBase = {
-        ...invoiceData,
+      const invoiceDetail: InvoiceDetail = {
+        ...(invoiceData as Omit<Invoice, 'id'>),
         id: invoiceDoc.id,
         createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
         updatedAt: invoiceData.updatedAt?.toDate ? invoiceData.updatedAt.toDate().toISOString() : new Date().toISOString(),
-      } as Invoice;
-      
-      invoiceDetails.push({
-        ...invoiceBase,
         customer,
         items,
-        isEdited
-      });
+        isEdited,
+      };
+      
+      invoiceDetails.push(invoiceDetail);
     }
     
     const statusOrder = ['Unpaid', 'Partial', 'Paid', 'Draft', 'Overdue'];
@@ -144,12 +141,10 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
 
         const invoiceData = invoiceSnap.data();
 
-        // **CORRECTED LOGIC: Fetch items from the subcollection**
         const itemsCollectionRef = collection(invoiceRef, 'invoice_items');
         const itemsSnapshot = await getDocs(itemsCollectionRef);
         const items = itemsSnapshot.docs.map(itemDoc => ({ id: itemDoc.id, ...itemDoc.data() } as InvoiceItem));
 
-        // Fetch customer information
         const customerRef = doc(db, CUSTOMERS_COLLECTION, invoiceData.customerId);
         const customerSnap = await getDoc(customerRef);
         
@@ -163,10 +158,8 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
             createdAt: customerData.createdAt?.toDate ? customerData.createdAt.toDate().toISOString() : new Date().toISOString(),
          } as Customer;
 
-        // Prioritize invoice.customerName if it exists, otherwise use the customer record's name
         customer.name = invoiceData.customerName || customer.name;
 
-        // Fetch related payments
         let payments: Payment[] = [];
         if (invoiceData.paymentIds && invoiceData.paymentIds.length > 0) {
             const paymentPromises = invoiceData.paymentIds.map(pid => 
@@ -185,14 +178,13 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
                 });
         }
         
-        // Construct the final InvoiceDetail object
         return {
-            ...invoiceData,
+            ...(invoiceData as Omit<Invoice, 'id'>),
             id: invoiceSnap.id,
             createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
             updatedAt: invoiceData.updatedAt?.toDate ? invoiceData.updatedAt.toDate().toISOString() : new Date().toISOString(),
             customer,
-            items, // **Ensure items are included here**
+            items,
             payments,
         } as InvoiceDetail;
 
@@ -239,11 +231,6 @@ interface CreateInvoicePayload {
   customer: Customer;
 }
 
-/**
- * Internal helper to create an invoice and its items within a Firestore transaction/batch.
- * This is the "Master Chef" function. It does NOT commit the batch.
- * @returns The DocumentReference of the new invoice.
- */
 export async function _createInvoiceWithItems(
   batch: WriteBatch,
   payload: CreateInvoicePayload
@@ -255,22 +242,17 @@ export async function _createInvoiceWithItems(
   const finalInvoiceData = { ...invoiceData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
   batch.set(invoiceRef, finalInvoiceData);
 
-  // Handle inventory updates and history for sold items
   for (const item of items) {
     const itemRef = doc(collection(invoiceRef, 'invoice_items'));
     batch.set(itemRef, { ...item, inventoryId: item.isCustom ? null : item.id });
 
     if (!item.isCustom && item.id) {
       const inventoryItemRef = doc(db, INVENTORY_COLLECTION, item.id);
-      // Note: We expect the calling function to have verified inventory existence.
-      // In a real-world scenario, you might re-fetch here if not using a transaction.
       const productHistoryRef = doc(collection(db, INVENTORY_HISTORY_COLLECTION));
       batch.set(productHistoryRef, {
-        // This assumes 'item' has enough product details, which might need adjustment.
-        // For now, we'll store what we have. A better approach might fetch the full product.
-        ...item, // This is a simplification.
+        ...item,
         id: item.id,
-        imei: item.description?.split(' - ')[0] || 'N/A', // Assuming description has IMEI
+        imei: item.description?.split(' - ')[0] || 'N/A', 
         status: 'Sold' as const,
         amount: item.total,
         movedAt: serverTimestamp(),
@@ -282,11 +264,10 @@ export async function _createInvoiceWithItems(
     }
   }
 
-  // Create initial edit history
   const historyRef = doc(collection(invoiceRef, 'edit_history'));
   batch.set(historyRef, {
     timestamp: serverTimestamp(),
-    user: 'admin_user', // Hardcoded user
+    user: 'admin_user',
     changes: { initialCreation: { from: null, to: `Invoice Created (Total: ${invoiceData.total.toFixed(2)})` } }
   });
 
@@ -338,7 +319,6 @@ export async function sendInvoice({ invoiceData, items, customer, cashAmount, ca
               { cashAmount, cardAmount, checkAmount: 0 },
               [invoiceRef.id]
             );
-            // Update the invoice with the actual payment ID
             batch.update(invoiceRef, { paymentIds: [paymentId] });
         }
         
@@ -381,7 +361,6 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
   try {
     const invoiceRef = doc(db, INVOICES_COLLECTION, originalInvoice.id);
     
-    // Server-side validation: Fetch the latest invoice state
     const currentInvoiceSnap = await getDoc(invoiceRef);
     if (!currentInvoiceSnap.exists()) {
         return { success: false, error: 'Invoice not found.' };
@@ -394,10 +373,8 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
 
     const batch = writeBatch(db);
 
-    // --- 1. Detect Changes and Create History Entry ---
     const changes: EditHistoryEntry['changes'] = {};
 
-    // Compare simple fields
     if (originalInvoice.customer.id !== updatedInvoice.customerId) {
       changes.customer = { from: originalInvoice.customer.name, to: updatedInvoice.customerName };
     }
@@ -411,11 +388,9 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
       changes.totalAmount = { from: originalInvoice.total.toFixed(2), to: updatedInvoice.total.toFixed(2) };
     }
     
-    // Compare items
     const originalItemsMap = new Map(originalInvoice.items.map(item => [item.id, item]));
     const updatedItemsMap = new Map(updatedItems.map(item => [item.id, item]));
 
-    // Check for removed and modified items
     for (const [id, originalItem] of originalItemsMap.entries()) {
       const updatedItem = updatedItemsMap.get(id);
       if (!updatedItem) {
@@ -430,7 +405,6 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
       }
     }
 
-    // Check for added items
     for (const [id, updatedItem] of updatedItemsMap.entries()) {
       if (!originalItemsMap.has(id)) {
         changes[`addedItem_${id.slice(0,5)}`] = { from: 'Not present', to: updatedItem.productName };
@@ -441,16 +415,14 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
       const historyRef = doc(collection(invoiceRef, 'edit_history'));
       const historyEntry: Omit<EditHistoryEntry, 'id'> = {
         timestamp: serverTimestamp(),
-        user: 'admin_user', // Hardcoded for now
+        user: 'admin_user',
         changes: changes,
       };
       batch.set(historyRef, historyEntry);
     }
     
-    // --- 2. Update Invoice Document ---
     batch.update(invoiceRef, {...updatedInvoice, updatedAt: serverTimestamp()} as any);
 
-    // --- 3. Update/Re-create Items Subcollection ---
     const oldItemsSnapshot = await getDocs(collection(invoiceRef, 'invoice_items'));
     oldItemsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
 
@@ -459,9 +431,6 @@ export async function updateInvoice({ originalInvoice, updatedInvoice, updatedIt
       batch.set(newItemRef, item);
     }
     
-    // --- 4. Handle inventory and debt changes ---
-    // This part is complex. For now, we only handle debt adjustment based on total change.
-    // A full implementation would need to track item-level changes to restock/un-stock inventory.
     const totalDifference = updatedInvoice.total - originalInvoice.total;
     if (totalDifference !== 0 && originalInvoice.customer.id !== WALK_IN_CUSTOMER_ID) {
       const customerRef = doc(db, CUSTOMERS_COLLECTION, originalInvoice.customer.id);
@@ -497,7 +466,6 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
   try {
     const originalInvoiceRef = doc(db, INVOICES_COLLECTION, invoice.id);
 
-    // Server-side validation
     const currentInvoiceSnap = await getDoc(originalInvoiceRef);
     if (!currentInvoiceSnap.exists()) {
         return { success: false, error: 'Invoice not found.' };
@@ -512,8 +480,6 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
     
     batch.update(originalInvoiceRef, { status: 'Voided', updatedAt: serverTimestamp() });
 
-    // Since we now only allow voiding 'Unpaid' invoices, the debt reversal logic simplifies.
-    // We just reverse the full total of the invoice.
     if (invoice.customer.id !== WALK_IN_CUSTOMER_ID) {
         const customerRef = doc(db, CUSTOMERS_COLLECTION, invoice.customer.id);
         batch.update(customerRef, { debt: increment(-invoice.total) });
@@ -528,7 +494,6 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
       
       const { status, amount, movedAt, customerId, customerName, invoiceId, ...originalProductData } = historyItem;
 
-       // Sanitize the product data by removing any remaining timestamp objects
       const sanitizedProduct = {
         ...originalProductData,
         createdAt: originalProductData.createdAt?.toDate ? originalProductData.createdAt.toDate().toISOString() : new Date().toISOString(),
@@ -562,5 +527,3 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
     return { success: false, error: 'An unknown error occurred while archiving the invoice.' };
   }
 }
-
-    
