@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db, isConfigured } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, limit, addDoc, serverTimestamp, writeBatch, doc, getDoc, collectionGroup, deleteDoc, where, updateDoc, increment, DocumentReference } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, addDoc, serverTimestamp, writeBatch, doc, getDoc, collectionGroup, deleteDoc, where, updateDoc, increment, DocumentReference } from 'firestore';
 import { summarizeInvoice } from '@/ai/flows/invoice-summary';
 import type { Invoice, InvoiceItem, Product, Customer, InvoiceDetail, InvoiceHistory, EditHistoryEntry, Payment, TenderDetail } from '@/lib/types';
 import { getInventory } from './inventory';
@@ -101,7 +101,7 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
       }
       
       if (customer) {
-        const invoiceBase = { id: invoiceDoc.id, ...invoiceData, createdAt } as Invoice;
+        const invoiceBase = { ...invoiceData, id: invoiceDoc.id, createdAt } as Invoice;
         invoiceDetails.push({
           ...invoiceBase,
           customer,
