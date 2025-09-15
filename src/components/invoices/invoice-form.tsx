@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import React, { useState, useMemo, useEffect, useTransition } from 'react';
@@ -29,6 +28,7 @@ import { AddCustomerForm } from '../customers/add-customer-form';
 import { Checkbox } from '../ui/checkbox';
 import { InvoicePreview } from './preview';
 import { Logo } from '../logo';
+import { Combobox } from '@/components/ui/combobox';
 
 interface InvoiceFormProps {
   invoice?: InvoiceDetail;
@@ -92,6 +92,13 @@ export function InvoiceForm({ invoice, inventory, customers }: InvoiceFormProps)
   const displayCustomers = useMemo(() => {
     return customers.filter(c => c.id !== WALK_IN_CUSTOMER_ID);
   }, [customers]);
+
+  const customerOptions = useMemo(() => {
+    return displayCustomers.map(customer => ({
+      value: customer.id,
+      label: `${customer.name} - ${customer.email}`
+    }));
+  }, [displayCustomers]);
 
   useEffect(() => {
     if (isWalkIn) {
@@ -263,7 +270,7 @@ export function InvoiceForm({ invoice, inventory, customers }: InvoiceFormProps)
             items, 
             customer: selectedCustomer,
             cashAmount: isCashPayment ? cashAmount : 0,
-            cardAmount: isCardPayment ? cardAmount : 0,
+            cardAmount: isCashPayment ? cardAmount : 0,
         });
 
         if (result.success) {
@@ -339,40 +346,17 @@ export function InvoiceForm({ invoice, inventory, customers }: InvoiceFormProps)
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Select onValueChange={handleSelectCustomer} value={selectedCustomer?.id} disabled={isWalkIn}>
-                    <SelectTrigger className="h-14">
-                        <SelectValue asChild>
-                        {selectedCustomer && !isWalkIn ? (
-                            <div className="flex items-center gap-3">
-                            <Avatar>
-                                <AvatarFallback>{selectedCustomer.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p className="font-medium">{selectedCustomer.name}</p>
-                                <p className="text-sm text-muted-foreground">{selectedCustomer.email}</p>
-                            </div>
-                            </div>
-                        ) : (
-                            <span>Select a customer</span>
-                        )}
-                        </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                        {displayCustomers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                            <div className="flex items-center gap-3">
-                            <Avatar>
-                                <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p>{customer.name}</p>
-                                <p className="text-sm text-muted-foreground">{customer.email}</p>
-                            </div>
-                            </div>
-                        </SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
+                    <div className="flex-1">
+                        <Combobox
+                          options={customerOptions}
+                          value={selectedCustomer?.id}
+                          onChange={handleSelectCustomer}
+                          disabled={isWalkIn}
+                          placeholder="Select a customer..."
+                          searchPlaceholder="Search customers..."
+                          emptyPlaceholder="No customers found."
+                        />
+                    </div>
                     <Button variant="outline" size="icon" onClick={() => setIsAddCustomerOpen(true)} disabled={isWalkIn}>
                         <UserPlus className="h-5 w-5" />
                         <span className="sr-only">Add New Customer</span>
@@ -582,4 +566,5 @@ export function InvoiceForm({ invoice, inventory, customers }: InvoiceFormProps)
   );
 }
 
+    
     
