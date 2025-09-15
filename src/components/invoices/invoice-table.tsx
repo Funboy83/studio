@@ -105,7 +105,7 @@ export function InvoiceTable({ invoices, title = "Invoices", onArchive, showRefu
                   </TableRow>
                 ) : (
                   invoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
+                    <TableRow key={invoice.id} onClick={() => setQuickViewInvoice(invoice)} className="cursor-pointer">
                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                       <TableCell>{getCustomerName(invoice)}</TableCell>
                       <TableCell>
@@ -120,10 +120,6 @@ export function InvoiceTable({ invoices, title = "Invoices", onArchive, showRefu
                               <Badge 
                                 variant="destructive" 
                                 className="bg-orange-500 hover:bg-orange-600 cursor-pointer"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setQuickViewInvoice(invoice);
-                                }}
                               >
                                 Returned
                               </Badge>
@@ -136,12 +132,12 @@ export function InvoiceTable({ invoices, title = "Invoices", onArchive, showRefu
                       <TableCell className="text-right">
                       <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0" disabled={invoice.status === 'Voided'}>
+                              <Button variant="ghost" className="h-8 w-8 p-0" disabled={invoice.status === 'Voided'} onClick={(e) => e.stopPropagation()}>
                               <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                               </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem onSelect={() => setQuickViewInvoice(invoice)}>
                                 View Invoice
