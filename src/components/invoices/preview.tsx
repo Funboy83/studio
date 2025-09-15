@@ -158,15 +158,15 @@ export function InvoicePreview({ invoice, isEdited = false }: InvoicePreviewProp
                 </div>
                 <div className="flex justify-between">
                     <span className="text-muted-foreground">Discount</span>
-                    <span>-${invoice.discount?.toFixed(2) || '0.00'}</span>
+                    <span>-${(invoice.discount || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                     <span className="text-muted-foreground">Tax</span>
-                    <span>${invoice.tax.toFixed(2)}</span>
+                    <span>${(invoice.tax || 0).toFixed(2)}</span>
                 </div>
                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Amount Paid</span>
-                    <span className="text-green-600">-${invoice.amountPaid?.toFixed(2) || '0.00'}</span>
+                    <span className="text-green-600">-${(invoice.amountPaid || 0).toFixed(2)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-bold text-lg">

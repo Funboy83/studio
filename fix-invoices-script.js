@@ -82,6 +82,10 @@ async function fixInvoiceData() {
       updates.discount = 0;
       needsUpdate = true;
     }
+    if (invoiceData.tax === undefined) {
+      updates.tax = 0;
+      needsUpdate = true;
+    }
     if (invoiceData.amountPaid === undefined) {
       updates.amountPaid = 0;
       needsUpdate = true;
