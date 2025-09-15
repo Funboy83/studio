@@ -558,4 +558,3 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
     return { success: false, error: 'An unknown error occurred while archiving the invoice.' };
   }
 }
-
