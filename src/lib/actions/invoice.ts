@@ -142,26 +142,28 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
             return null;
         }
 
-        let invoiceData = invoiceSnap.data();
+        const invoiceData = invoiceSnap.data();
 
-        const itemsCollectionRef = collection(invoiceSnap.ref, 'invoice_items');
+        // **CORRECTED LOGIC: Fetch items from the subcollection**
+        const itemsCollectionRef = collection(invoiceRef, 'invoice_items');
         const itemsSnapshot = await getDocs(itemsCollectionRef);
         const items = itemsSnapshot.docs.map(itemDoc => ({ id: itemDoc.id, ...itemDoc.data() } as InvoiceItem));
 
+        // Fetch customer information
         const customerRef = doc(db, CUSTOMERS_COLLECTION, invoiceData.customerId);
         const customerSnap = await getDoc(customerRef);
         
         if (!customerSnap.exists()) {
             throw new Error(`Customer with ID ${invoiceData.customerId} not found for invoice ${id}`);
         }
-        let customerData = customerSnap.data();
+        const customerData = customerSnap.data();
         let customer = { 
             id: customerSnap.id,
             ...customerData,
             createdAt: customerData.createdAt?.toDate ? customerData.createdAt.toDate().toISOString() : new Date().toISOString(),
          } as Customer;
 
-        // Prioritize invoice.customerName if it exists
+        // Prioritize invoice.customerName if it exists, otherwise use the customer record's name
         customer.name = invoiceData.customerName || customer.name;
 
         // Fetch related payments
@@ -182,14 +184,15 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
                     } as Payment;
                 });
         }
-
+        
+        // Construct the final InvoiceDetail object
         return {
             ...invoiceData,
             id: invoiceSnap.id,
             createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
             updatedAt: invoiceData.updatedAt?.toDate ? invoiceData.updatedAt.toDate().toISOString() : new Date().toISOString(),
             customer,
-            items,
+            items, // **Ensure items are included here**
             payments,
         } as InvoiceDetail;
 
@@ -198,6 +201,7 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
         return null;
     }
 }
+
 
 export async function getLatestInvoiceNumber(): Promise<number> {
   if (!isConfigured) {
@@ -558,3 +562,5 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
     return { success: false, error: 'An unknown error occurred while archiving the invoice.' };
   }
 }
+
+    
