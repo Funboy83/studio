@@ -19,7 +19,7 @@ export function InvoiceQuickView({ invoice, showRefundExchangeButton = false }: 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2 print:hidden">
         {showRefundExchangeButton && (
           <Link href={`/dashboard/invoices/${invoice.id}/refund`} passHref>
              <Button variant="outline" disabled={!canRefund}>
