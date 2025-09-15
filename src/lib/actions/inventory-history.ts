@@ -34,8 +34,8 @@ export async function getInventoryHistory(): Promise<ProductHistory[]> {
       return { 
         id: doc.id, 
         ...data,
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         movedAt: movedAt.toISOString(),
         customerName: customer ? customer.name : 'N/A',
       } as ProductHistory

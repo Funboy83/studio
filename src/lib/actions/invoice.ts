@@ -100,6 +100,7 @@ export async function getInvoices(): Promise<InvoiceDetail[]> {
         ...invoiceData,
         id: invoiceDoc.id,
         createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
+        updatedAt: invoiceData.updatedAt?.toDate ? invoiceData.updatedAt.toDate().toISOString() : new Date().toISOString(),
       } as Invoice;
       
       invoiceDetails.push({
@@ -186,6 +187,7 @@ export async function getInvoiceById(id: string): Promise<InvoiceDetail | null> 
             ...invoiceData,
             id: invoiceSnap.id,
             createdAt: invoiceData.createdAt?.toDate ? invoiceData.createdAt.toDate().toISOString() : new Date().toISOString(),
+            updatedAt: invoiceData.updatedAt?.toDate ? invoiceData.updatedAt.toDate().toISOString() : new Date().toISOString(),
             customer,
             items,
             payments,
@@ -520,11 +522,19 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
     for (const docSnap of historyItemsSnap.docs) {
       const historyItem = docSnap.data() as InvoiceHistory;
       
-      const { status, amount, movedAt, customerId, customerName, invoiceId, ...originalProduct } = historyItem;
+      const { status, amount, movedAt, customerId, customerName, invoiceId, ...originalProductData } = historyItem;
 
-      if (originalProduct.id && originalProduct.brand && originalProduct.model) {
-        const inventoryRef = doc(db, INVENTORY_COLLECTION, originalProduct.id);
-        batch.set(inventoryRef, { ...originalProduct, status: 'Available' }); 
+       // Sanitize the product data by removing any remaining timestamp objects
+      const sanitizedProduct = {
+        ...originalProductData,
+        createdAt: originalProductData.createdAt?.toDate ? originalProductData.createdAt.toDate().toISOString() : new Date().toISOString(),
+        updatedAt: originalProductData.updatedAt?.toDate ? originalProductData.updatedAt.toDate().toISOString() : new Date().toISOString(),
+      };
+
+
+      if (sanitizedProduct.id && sanitizedProduct.brand && sanitizedProduct.model) {
+        const inventoryRef = doc(db, INVENTORY_COLLECTION, sanitizedProduct.id);
+        batch.set(inventoryRef, { ...sanitizedProduct, status: 'Available' }); 
       }
       
       batch.update(docSnap.ref, { status: 'Voided' });
