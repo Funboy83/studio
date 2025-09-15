@@ -6,7 +6,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import type { InvoiceDetail } from "@/lib/types"
@@ -15,6 +14,7 @@ import { Badge } from "../ui/badge"
 import { InvoiceTemplate } from "./invoice-template"
 import { Separator } from "../ui/separator"
 import Link from "next/link"
+import ReactDOMServer from 'react-dom/server';
 
 interface InvoicePreviewProps {
   invoice: InvoiceDetail;
@@ -36,13 +36,32 @@ const getStatusVariant = (status?: string) => {
 }
 
 export function InvoicePreview({ invoice, isEdited = false }: InvoicePreviewProps) {
+  
   const handlePrint = () => {
-    window.print();
+    const printContent = ReactDOMServer.renderToString(
+      <InvoiceTemplate invoice={invoice} />
+    );
+    
+    const printWindow = window.open('', '', 'height=600,width=800');
+    if (printWindow) {
+      printWindow.document.write('<html><head><title>Print Invoice</title>');
+      // You can include a stylesheet link here if needed for the template
+      printWindow.document.write('<link rel="stylesheet" href="/globals.css" type="text/css" />'); // Example, adjust path if needed
+      printWindow.document.write('</head><body >');
+      printWindow.document.write(printContent);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.focus();
+      // Use a timeout to ensure content is loaded before printing
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    }
   };
 
   return (
     <div className="bg-muted/30 p-4 rounded-lg">
-      <div className="print-ui print:hidden">
         <div className="flex items-center gap-4 mb-4">
             <div className="flex-1" />
             <Button onClick={handlePrint} variant="outline">
@@ -187,11 +206,6 @@ export function InvoicePreview({ invoice, isEdited = false }: InvoicePreviewProp
 
             </CardContent>
         </Card>
-      </div>
-
-      <div className="print-template hidden print:block">
-        <InvoiceTemplate invoice={invoice} />
-      </div>
     </div>
   );
 }
