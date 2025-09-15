@@ -91,7 +91,7 @@ export async function getPayments(): Promise<PaymentDetail[]> {
  * This is not to be called directly from a component.
  * @returns The ID of the new payment document.
  */
-export function _createPaymentWithinTransaction(
+export async function _createPaymentWithinTransaction(
   batch: WriteBatch,
   customerId: string,
   totalAmount: number,
@@ -100,7 +100,7 @@ export function _createPaymentWithinTransaction(
   type: 'payment' | 'refund' = 'payment',
   notes?: string,
   sourceCreditNoteId?: string
-): string {
+): Promise<string> {
     const paymentRef = doc(collection(db, PAYMENTS_COLLECTION));
 
     const isRefund = type === 'refund';
