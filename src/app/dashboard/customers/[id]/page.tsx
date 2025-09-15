@@ -24,6 +24,7 @@ export default async function CustomerDetailsPage({ params }: { params: { id: st
 
   const { customer, invoices } = data;
   const isWalkInCustomer = customer.id === WALK_IN_CUSTOMER_ID;
+  const hasDebt = customer.debt > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,12 +42,14 @@ export default async function CustomerDetailsPage({ params }: { params: { id: st
               <DollarSign className="mr-2 h-4 w-4" />
               Send Reminder
             </Button>
-            <Link href={`/dashboard/customers/${customer.id}/payment`} passHref>
-              <Button variant="outline">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Payment
-              </Button>
-            </Link>
+            {hasDebt && (
+                <Link href={`/dashboard/customers/${customer.id}/payment`} passHref>
+                <Button>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Record Payment
+                </Button>
+                </Link>
+            )}
             <Button variant="outline">
               <Edit className="mr-2 h-4 w-4" />
               Edit Customer
