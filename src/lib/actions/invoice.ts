@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { db, isConfigured } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, limit, addDoc, serverTimestamp, writeBatch, doc, getDoc, collectionGroup, deleteDoc, where, updateDoc, increment, DocumentReference } from 'firebase/firestore';
 import { summarizeInvoice } from '@/ai/flows/invoice-summary';
-import type { Invoice, InvoiceItem, Product, Customer, InvoiceDetail, InvoiceHistory, EditHistoryEntry, Payment, TenderDetail } from '@/lib/types';
+import type { Invoice, InvoiceItem, Product, Customer, InvoiceDetail, InvoiceHistory, EditHistoryEntry, Payment, TenderDetail, Sale } from '@/lib/types';
 import { getInventory } from './inventory';
 import { _createPaymentWithinTransaction } from './payment';
 import { DATA_PATH } from '@/lib/db-path';
@@ -532,4 +532,95 @@ export async function archiveInvoice(invoice: InvoiceDetail): Promise<{ success:
     }
     return { success: false, error: 'An unknown error occurred while archiving the invoice.' };
   }
+}
+
+
+export async function getDashboardStats() {
+    if (!isConfigured) {
+        return {
+            totalRevenue: 0,
+            salesCount: 0,
+            newCustomers: 0,
+            outstandingDebt: 0,
+            salesData: [],
+            recentSales: []
+        };
+    }
+    try {
+        const invoicesRef = collection(db, INVOICES_COLLECTION);
+        const customersRef = collection(db, CUSTOMERS_COLLECTION);
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+        const invoicesSnapshot = await getDocs(invoicesRef);
+        const customersSnapshot = await getDocs(customersRef);
+        
+        let totalRevenue = 0;
+        let salesCount = 0;
+        let outstandingDebt = 0;
+        const salesByMonth: Record<string, number> = {};
+        
+        invoicesSnapshot.forEach(doc => {
+            const invoice = doc.data() as Invoice;
+            if (invoice.status === 'Paid' || invoice.status === 'Partial') {
+                const invoiceDate = invoice.issueDate ? new Date(invoice.issueDate) : new Date(invoice.createdAt.toDate());
+                if (invoiceDate >= thirtyDaysAgo) {
+                    totalRevenue += invoice.amountPaid;
+                    salesCount++;
+                }
+
+                if (invoiceDate >= oneYearAgo) {
+                    const month = invoiceDate.toLocaleString('default', { month: 'short', year: '2-digit' });
+                    salesByMonth[month] = (salesByMonth[month] || 0) + invoice.total;
+                }
+            }
+        });
+
+        const sortedRecentSales = invoicesSnapshot.docs
+            .map(doc => ({id: doc.id, ...doc.data() } as Invoice))
+            .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime())
+            .slice(0, 5);
+
+        const customerMap = new Map(customersSnapshot.docs.map(doc => [doc.id, doc.data() as Customer]));
+
+        const recentSales = sortedRecentSales.map(invoice => {
+            const customer = customerMap.get(invoice.customerId);
+            return {
+                id: invoice.id,
+                customerName: customer?.name || invoice.customerName || 'N/A',
+                customerEmail: customer?.email || '',
+                amount: invoice.total
+            }
+        });
+
+        let newCustomers = 0;
+        customersSnapshot.forEach(doc => {
+            const customer = doc.data() as Customer;
+            const createdAt = customer.createdAt?.toDate ? customer.createdAt.toDate() : new Date();
+             if (createdAt >= thirtyDaysAgo) {
+                newCustomers++;
+            }
+            outstandingDebt += customer.debt || 0;
+        });
+
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const salesData: Sale[] = Array.from({ length: 12 }, (_, i) => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const month = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+            return {
+                month: monthNames[d.getMonth()],
+                revenue: salesByMonth[month] || 0,
+            };
+        }).reverse();
+
+        return { totalRevenue, salesCount, newCustomers, outstandingDebt, salesData, recentSales };
+
+    } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+        return { totalRevenue: 0, salesCount: 0, newCustomers: 0, outstandingDebt: 0, salesData: [], recentSales: [] };
+    }
 }

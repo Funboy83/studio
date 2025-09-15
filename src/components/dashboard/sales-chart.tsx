@@ -2,9 +2,13 @@
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MOCK_SALES_DATA } from '@/lib/mock-data';
+import type { Sale } from '@/lib/types';
 
-export function SalesChart() {
+interface SalesChartProps {
+    salesData: Sale[];
+}
+
+export function SalesChart({ salesData }: SalesChartProps) {
   return (
     <Card>
       <CardHeader>
@@ -12,7 +16,7 @@ export function SalesChart() {
       </CardHeader>
       <CardContent className="pl-2">
         <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={MOCK_SALES_DATA}>
+          <BarChart data={salesData}>
             <XAxis
               dataKey="month"
               stroke="#888888"
