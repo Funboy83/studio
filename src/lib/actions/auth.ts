@@ -26,10 +26,10 @@ export async function login(prevState: string | undefined, formData: FormData) {
   }
 
   try {
-    // Note: Server-side SDK would be better here, but for simplicity
-    // we use the client SDK. This is less secure as it exposes API keys.
+    // This will sign the user in. The client-side `onAuthStateChanged`
+    // listener in `useAuth` will then pick up this change and update the state,
+    // which triggers the redirect in `LoginPage`.
     await signInWithEmailAndPassword(auth, email, password);
-    // On the client, the onAuthStateChanged listener will handle redirection.
     return undefined;
   } catch (error: any) {
     if (error.code) {

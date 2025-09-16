@@ -76,11 +76,12 @@ export default function LoginPage() {
                 type="email"
                 placeholder="m@example.com"
                 required
+                defaultValue="nneenterpriseinc@gmail.com"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
+              <Input id="password" name="password" type="password" required defaultValue="@Abcde12345" />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
