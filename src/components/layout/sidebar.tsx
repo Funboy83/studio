@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Boxes, LayoutGrid, BarChart3, Users, Settings, Landmark, ArrowLeftRight } from 'lucide-react';
+import { Boxes, LayoutGrid, BarChart3, Users, Settings, Landmark, ArrowLeftRight, Building, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '../logo';
 
@@ -12,6 +12,16 @@ const mainNavItems = [
     href: '/dashboard',
     icon: LayoutGrid,
     label: 'Dashboard',
+  },
+  {
+    href: '/dashboard/wholesale',
+    icon: Building,
+    label: 'Wholesale',
+  },
+  {
+    href: '/dashboard/retail',
+    icon: Store,
+    label: 'Retail',
   },
   {
     href: '/dashboard/inventory',
