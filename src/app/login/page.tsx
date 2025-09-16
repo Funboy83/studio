@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { useFormStatus } from 'react-dom';
-import { login } from '@/lib/actions/auth';
+import { login, type LoginState } from '@/lib/actions/auth';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -28,18 +28,25 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const { toast } = useToast();
-  const [errorMessage, dispatch] = useActionState(login, undefined);
+  
+  const initialState: LoginState = { success: false, message: undefined };
+  const [state, dispatch] = useActionState(login, initialState);
 
   useEffect(() => {
-    if (errorMessage) {
+    if (state.message) {
       toast({
         title: 'Sign In Error',
-        description: errorMessage,
+        description: state.message,
         variant: 'destructive',
       });
     }
-  }, [errorMessage, toast]);
+    if (state.success) {
+      // On successful login from the action, redirect to the dashboard.
+      router.replace('/dashboard');
+    }
+  }, [state, toast, router]);
 
+  // This effect handles the case where the user is already logged in when visiting the page.
   useEffect(() => {
     if (!loading && user) {
       router.replace('/dashboard');

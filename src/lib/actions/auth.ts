@@ -10,38 +10,43 @@ const LoginSchema = z.object({
   password: z.string().min(1, { message: 'Password is required.' }),
 });
 
-export async function login(prevState: string | undefined, formData: FormData) {
+export interface LoginState {
+  success: boolean;
+  message?: string;
+}
+
+export async function login(prevState: LoginState, formData: FormData): Promise<LoginState> {
   const validatedFields = LoginSchema.safeParse(
     Object.fromEntries(formData.entries()),
   );
 
   if (!validatedFields.success) {
-    return 'Invalid email or password.';
+    return { success: false, message: 'Invalid email or password.' };
   }
 
   const { email, password } = validatedFields.data;
 
   if (!isConfigured) {
-    return 'Firebase is not configured.';
+    return { success: false, message: 'Firebase is not configured.' };
   }
 
   try {
-    // This will sign the user in. The client-side `onAuthStateChanged`
-    // listener in `useAuth` will then pick up this change and update the state,
-    // which triggers the redirect in `LoginPage`.
     await signInWithEmailAndPassword(auth, email, password);
-    return undefined;
+    return { success: true };
   } catch (error: any) {
+    let message = 'An unknown error occurred.';
     if (error.code) {
       switch (error.code) {
         case 'auth/user-not-found':
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
-          return 'Invalid email or password.';
+          message = 'Invalid email or password.';
+          break;
         default:
-          return 'Something went wrong. Please try again.';
+          message = 'Something went wrong. Please try again.';
+          break;
       }
     }
-    return 'An unknown error occurred.';
+    return { success: false, message };
   }
 }
